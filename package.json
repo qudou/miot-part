@@ -1,0 +1,24 @@
+{
+  "name": "musicbox",
+  "version": "1.0.0",
+  "description": "a musicbox",
+  "main": "musicbox.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "musicbox"
+  ],
+  "author": "qudou",
+  "license": "MIT",
+  "dependencies": {
+    "node-dht-sensor": "^0.0.32",
+    "lirc_node": "0.0.4",
+    "md5": "^2.2.1",
+    "mpg123": "^0.2.3",
+    "node-schedule": "^1.2.3",
+    "python-shell": "^0.4.0",
+    "request": "^2.81.0",
+    "xmlplus": "^1.5.12"
+  }
+}
