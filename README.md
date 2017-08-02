@@ -4,7 +4,7 @@
 
 ## 安装 bcm2835
 
-bcm2835 库是安装模块 `node-dht-sensor` 必需的。bcm2835 库是树莓派 cpu 芯片的库函数，相当于stm32的固件库一样，底层是直接操作寄存器。从 bcm22835 官网（http://www.airspayce.com/mikem/bcm2835/）下载最新版本的库，然后解压安装。
+bcm2835 库是安装模块 `node-dht-sensor` 必需的。bcm2835 库是树莓派 cpu 芯片的库函数，相当于stm32的固件库一样，底层是直接操作寄存器。从 [bcm22835 官网](http://www.airspayce.com/mikem/bcm2835/) 下载最新版本的库，然后解压安装。
 
 ```bash
 $ tar -zxvf bcm2835-1.xx.tar.gz
