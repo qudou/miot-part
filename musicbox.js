@@ -15,11 +15,10 @@ $_().imports({
         map: { share: "speeker/BDAudio" },
         fun: function (sys, items, opts) {
             let cmds = [], data = {};
-            this.watch("exec", (e, c, d) => {
-                data = d || {};
+            this.watch("exec", (e, c, d = {}) => {
                 cmds = c.split(' ');
                 items.remote.lock();
-                this.notify(cmds.shift(), [data]);
+                this.notify(cmds.shift(), [data = d]);
             });
             this.watch("next", (e, str) => {
                 str && rebuild(str);
