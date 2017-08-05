@@ -64,3 +64,23 @@ sudo mode2 -d /dev/lirc0
 ```bash
 sudo cp ~/lircd.conf /etc/lirc/lircd.conf
 ```
+
+## 安装自启动脚本
+
+1. 拷贝 musicbox 至目录 `/etc/init.d`
+
+```bash
+$ sudo cp musicbox /etc/init.d/
+```
+
+2. 修改拷贝后文件的执行权限
+
+```bash
+$ sudo chmod 755 deamon
+```
+
+3. 添加开机启动项
+
+```bash
+$ sudo update-rc.d deamon defaults
+```
