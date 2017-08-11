@@ -24,7 +24,7 @@ $ sudo pip install requests
 $ sudo pip install BeautifulSoup4
 $ sudo pip install pycrypto
 $ sudo pip install future
-```bash
+```
 
 ## 红外接收功能安装与配置
 
