@@ -18,7 +18,6 @@ $ sudo make install
 ## 安装依赖软件包
 
 apt-get install mpg123
-
 apt-get install python-dev
 
 pip install requests
@@ -41,7 +40,7 @@ dtoverlay=lirc-rpi,gpio_in_pin=18
 安装完 lirc 软件。
 
 ```bash
-sudo apt-get install lirc
+$ sudo apt-get install lirc
 ```
 
 编辑文件 `/etc/lirc/hardware.conf` 修改其中的部分内容如下。修改完后保存并重启系统，并通过 ls /dev/l* 命令查看红外线设备是否能用，如果有 lirc0 就说明能用了。
@@ -56,13 +55,13 @@ MODULES=”lirc_rpi”
 测试红外线接收功能，首先使用命令 `/etc/init.d/lirc stop` 关闭 LIRC 软件，然后执行如下命令。
 
 ```bash
-sudo mode2 -d /dev/lirc0
+$ sudo mode2 -d /dev/lirc0
 ```
 
 最后，将文件 `musicbox/lircd.conf` 覆盖lirc软件的相应文件
 
 ```bash
-sudo cp ~/lircd.conf /etc/lirc/lircd.conf
+$ sudo cp ~/lircd.conf /etc/lirc/lircd.conf
 ```
 
 ## 安装自启动脚本
