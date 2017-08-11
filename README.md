@@ -17,13 +17,14 @@ $ sudo make install
 
 ## 安装依赖软件包
 
-apt-get install mpg123
-apt-get install python-dev
-
-pip install requests
-pip install BeautifulSoup4
-pip install pycrypto
-pip install future
+```bash
+$ sudo apt-get install mpg123
+$ sudo apt-get install python-dev
+$ sudo pip install requests
+$ sudo pip install BeautifulSoup4
+$ sudo pip install pycrypto
+$ sudo pip install future
+```bash
 
 ## 红外接收功能安装与配置
 
