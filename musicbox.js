@@ -204,8 +204,8 @@ $_().imports({
                 require('child_process').exec("service musicbox restart", err => {err && console.log(err)});
             });
             this.watch("100+", (e, d) => {
-                let now = new Date, year = now.getFullYear(), month = now.getMonth(), day = now.getDay();
-                d.speek = `${year}年${month}月${day}日`;
+                let now = new Date, year = now.getFullYear(), month = now.getMonth(), day = now.getDate(), week = now.getDay();
+                d.speek = `${year}年${month+1}月${week}日星期${day}`;
                 this.notify("exec", ["pause speek resume", d]);
             });
             this.watch("200+", (e, d) => {
