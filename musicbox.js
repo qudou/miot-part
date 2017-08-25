@@ -1,3 +1,10 @@
+/*!
+ * musicbox.js v1.0.0
+ * https://github.com/qudou/musicbox
+ * (c) 2009-2017 qudou
+ * Released under the MIT license
+ */
+
 const xmlplus = require("xmlplus");
 
 xmlplus("musicbox", (xp, $_) => {
