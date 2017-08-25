@@ -12,7 +12,7 @@ CH-     CH      CH+
 7       8       9    
 </pre>
 
-musicbox 以当前用户收藏的歌单为频道列表。CH-/+ 代表切换至上/下一频道，单按 CH 键可播报当前频道的相关信息，双按 CH 键则重新启动 musicbox。<</>> 代表切换至上/下一首曲目，按 || 键可播放/暂停当前曲目。+/- 是音量调节键。按 EQ 键可播报当前曲目的相关信息。单/双按 0 至 9 按键，则播放相应序数的曲目。比如单按 6，则播放序数为 6 的曲目；又如，双按 7，则播放序数为 77 的曲目。按 100+ 播报当前日期，按 200+ 播报当前时间。
+musicbox 以当前用户收藏的歌单为频道列表。`CH-/+` 代表切换至上/下一频道，单按 `CH` 键可播报当前频道的相关信息，双按 `CH` 键则重新启动 musicbox。`<</>>` 代表切换至上/下一首曲目，按 `||` 键可播放/暂停当前曲目。`+/-` 是音量调节键。按 `EQ` 键可播报当前曲目的相关信息。单/双按 `0` 至 `9` 按键，则播放相应序数的曲目。比如单按 `6`，则播放序数为 `6` 的曲目；又如，双按 `7`，则播放序数为 `77` 的曲目。按 `100+` 播报当前日期，按 `200+` 播报当前时间。
 
 ## 安装依赖软件包
 
@@ -35,7 +35,7 @@ VCC 接 3.3v 引脚，GND 接地，IN 接 GPIO 18 口。
 dtoverlay=lirc-rpi,gpio_in_pin=18
 ```
 
-红外默认输出是18管脚，上述后面的 `,gpio_in_pin=18` 可以不写。如果红外接收头接到其他管脚则需修改对应管脚。
+红外默认输出是 18 管脚，上述后面的 `,gpio_in_pin=18` 可以不写。如果红外接收头接到其他管脚则需修改对应管脚。
 
 安装完 lirc 软件。
 
@@ -58,7 +58,7 @@ MODULES=”lirc_rpi”
 $ sudo mode2 -d /dev/lirc0
 ```
 
-最后，将文件 `musicbox/lircd.conf` 覆盖lirc软件的相应文件
+最后，将文件 `musicbox/lircd.conf` 覆盖 lirc 软件的相应文件
 
 ```bash
 $ sudo cp ~/lircd.conf /etc/lirc/lircd.conf
@@ -75,11 +75,11 @@ $ sudo cp musicbox /etc/init.d/
 2. 修改拷贝后文件的执行权限
 
 ```bash
-$ sudo chmod 755 deamon
+$ sudo chmod 755 musicbox
 ```
 
 3. 添加开机启动项
 
 ```bash
-$ sudo update-rc.d deamon defaults
+$ sudo update-rc.d musicbox defaults
 ```
