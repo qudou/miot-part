@@ -112,10 +112,6 @@ $_().imports({
                 d.speek = `当前频道：${list[cursor].name}，曲目量：${list[cursor].list.length()}`;
                 this.notify("exec", ["pause speek resume", d]);
             });
-            this.watch("ALARM", (e, d) => {
-                d.channel = list[cursor = 0].list;
-                this.notify("exec", ["pause ch_change", d]);
-            });
             this.on("data_ready", (e, _list, d) => {
                 list = _list;
                 d.channel = list[cursor].list;
@@ -196,7 +192,6 @@ $_().imports({
         }
     },
     Schedule: {
-        xml: "<DHTSensor id='dht' xmlns='tools'/>",
         fun: function (sys, items, opts) {
             let schedule = require('node-schedule');
             this.glance("CHCH", (e, d) => {
@@ -209,18 +204,17 @@ $_().imports({
                 require('child_process').exec("service musicbox restart", err => {err && console.log(err)});
             });
             this.watch("100+", (e, d) => {
+                let now = new Date, year = now.getFullYear(), month = now.getMonth(), day = now.getDay();
+                d.speek = `${year}年${month}月${day}日`;
+                this.notify("exec", ["pause speek resume", d]);
+            });
+            this.watch("200+", (e, d) => {
                 let now = new Date, hours = now.getHours(), minutes = now.getMinutes();
                 d.buf = true;
                 d.speek = minutes ? `北京时间${hours}点${minutes}分` : `北京时间${hours}点整`;
                 this.notify("exec", ["pause speek resume", d]);
             });
-            this.watch("200+", (e, d) => {
-                let data = items.dht();
-                d.speek = `温度：${data.temperature}℃, 湿度：${data.humidity}%`;
-                this.notify("exec", ["pause speek resume", d]);
-            });
-            schedule.scheduleJob('10 6 * * *', e => this.notify("ALARM", {}));
-            schedule.scheduleJob('0 6-23 * * *', e => this.notify("keypress", "100+"));
+            schedule.scheduleJob('0 6-23 * * *', e => this.notify("keypress", "200+"));
         }
     }
 });
@@ -340,18 +334,6 @@ $_("tools").imports({
                 result[key] = async function() {return await request.apply(null, [key].concat([].slice.call(arguments)))};
             });
             return result;
-        }
-    },
-    DHTSensor: {
-        fun: function (sys, items, opts) {
-            let sensor = require("node-dht-sensor");
-            return (type = 11) => {
-                let o = sensor.read(type, 22), // 22, 13
-                    n = type == 11 ? 0: 1;
-                o.humidity = o.humidity.toFixed(n);
-                o.temperature = o.temperature.toFixed(n);
-                return o;
-            };
         }
     }
 });

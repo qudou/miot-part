@@ -12,7 +12,6 @@
   "author": "qudou",
   "license": "MIT",
   "dependencies": {
-    "node-dht-sensor": "^0.0.32",
     "lirc_node": "0.0.4",
     "md5": "^2.2.1",
     "mpg123": "^0.2.3",

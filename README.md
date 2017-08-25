@@ -14,19 +14,6 @@ CH-     CH      CH+
 
 musicbox 以当前用户收藏的歌单为频道列表。CH-/+ 代表切换至上/下一频道，单按 CH 键可播报当前频道的相关信息，双按 CH 键则重新启动 musicbox。<</>> 代表切换至上/下一首曲目，按 || 键可播放/暂停当前曲目。+/- 是音量调节键。按 EQ 键可播报当前曲目的相关信息。单/双按 0 至 9 按键，则播放相应序数的曲目。比如单按 6，则播放序数为 6 的曲目；又如，双按 7，则播放序数为 77 的曲目。按 100+ 播报当前日期，按 200+ 播报当前时间。
 
-## 安装 bcm2835
-
-bcm2835 库是安装模块 `node-dht-sensor` 必需的。bcm2835 库是树莓派 cpu 芯片的库函数，相当于stm32的固件库一样，底层是直接操作寄存器。从 [bcm22835 官网](http://www.airspayce.com/mikem/bcm2835/) 下载最新版本的库，然后解压安装。
-
-```bash
-$ tar -zxvf bcm2835-1.xx.tar.gz
-$ cd bcm2835-1.xx
-$ ./configure
-$ make
-$ sudo make check
-$ sudo make install
-```
-
 ## 安装依赖软件包
 
 ```bash
