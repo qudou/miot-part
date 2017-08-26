@@ -206,8 +206,13 @@ $_().imports({
             });
             this.watch("100+", (e, d) => {
                 let now = new Date, year = now.getFullYear(), month = now.getMonth(), day = now.getDate(), week = now.getDay();
-                let lunar = chineseLunar.solarToLunar(now);
-                d.speek = `${year}年${month+1}月${day}日，星期${week}；农历${chineseLunar.format(lunar,'y年md')}`;
+                d.speek = `${year}年${month+1}月${day}日，星期${week}`;
+                this.notify("exec", ["pause speek resume", d]);
+            });
+            this.watch("100+100+", (e, d) => {
+                let now = new Date, 
+                    lunar = chineseLunar.solarToLunar(now);
+                d.speek = `${chineseLunar.format(lunar,'y年md')}`;
                 this.notify("exec", ["pause speek resume", d]);
             });
             this.watch("200+", (e, d) => {
