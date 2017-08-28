@@ -210,8 +210,7 @@ $_().imports({
                 this.notify("exec", ["pause speek resume", d]);
             });
             this.watch("100+100+", (e, d) => {
-                let now = new Date, 
-                    lunar = chineseLunar.solarToLunar(now);
+                let lunar = chineseLunar.solarToLunar(new Date);
                 d.speek = `${chineseLunar.format(lunar,'y年md')}`;
                 this.notify("exec", ["pause speek resume", d]);
             });
