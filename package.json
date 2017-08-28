@@ -12,7 +12,6 @@
   "author": "qudou",
   "license": "MIT",
   "dependencies": {
-    "chinese-lunar": "^0.1.4",
     "lirc_node": "0.0.4",
     "md5": "^2.2.1",
     "mpg123": "^0.2.3",

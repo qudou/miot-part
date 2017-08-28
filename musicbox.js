@@ -193,8 +193,7 @@ $_().imports({
     },
     Schedule: {
         fun: function (sys, items, opts) {
-            let schedule = require("node-schedule"),
-                chineseLunar = require("chinese-lunar");
+            let schedule = require("node-schedule");
             this.glance("CHCH", (e, d) => {
                 console.log("restart");
                 d.buf = true;
@@ -207,11 +206,6 @@ $_().imports({
             this.watch("100+", (e, d) => {
                 let now = new Date, year = now.getFullYear(), month = now.getMonth(), day = now.getDate(), week = now.getDay();
                 d.speek = `${year}年${month+1}月${day}日，星期${week}`;
-                this.notify("exec", ["pause speek resume", d]);
-            });
-            this.watch("100+100+", (e, d) => {
-                let lunar = chineseLunar.solarToLunar(new Date);
-                d.speek = `${chineseLunar.format(lunar,'y年md')}`;
                 this.notify("exec", ["pause speek resume", d]);
             });
             this.watch("200+", (e, d) => {
