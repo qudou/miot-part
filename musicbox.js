@@ -205,7 +205,7 @@ $_().imports({
             });
             this.watch("100+", (e, d) => {
                 let now = new Date, year = now.getFullYear(), month = now.getMonth(), day = now.getDate(), week = now.getDay();
-                d.speek = `${year}年${month+1}月${day}日，星期${week}`;
+                d.speek = `${year}年${month+1}月${date}日，星期${week == 0 ? '日' : week}`;
                 this.notify("exec", ["pause speek resume", d]);
             });
             this.watch("200+", (e, d) => {
