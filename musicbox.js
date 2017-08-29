@@ -210,7 +210,6 @@ $_().imports({
             });
             this.watch("200+", (e, d) => {
                 let now = new Date, hours = now.getHours(), minutes = now.getMinutes();
-                d.buf = true;
                 d.speek = minutes ? `北京时间${hours}点${minutes}分` : `北京时间${hours}点整`;
                 this.notify("exec", ["pause speek resume", d]);
             });
@@ -369,7 +368,7 @@ $_("speeker").imports({
                     tex = encodeURIComponent(text);
                 params.tok || (params.tok = await items.access_token());
                 let url = host + qs.stringify(xp.extend({}, params, {tex: tex, spd: speed || 4}));
-                let filePath = "/tmp/" + md5(tex);
+                let filePath = __dirname + "/tmp/" + md5(tex);
                 try {
                     fs.accessSync(filePath,  fs.F_OK|fs.R_OK);
                     return resolve(filePath);
