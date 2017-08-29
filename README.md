@@ -43,7 +43,7 @@ dtoverlay=lirc-rpi,gpio_in_pin=18
 $ sudo apt-get install lirc
 ```
 
-编辑文件 `/etc/lirc/hardware.conf` 修改其中的部分内容如下。修改完后保存并重启系统，并通过 ls /dev/l* 命令查看红外线设备是否能用，如果有 lirc0 就说明能用了。
+编辑文件 `/etc/lirc/hardware.conf` 修改其中的部分内容如下。修改完后保存并重启系统，并通过 `ls /dev/l*` 命令查看红外线设备是否能用，如果有 lirc0 就说明能用了。
 
 ```
 LIRCD_ARGS=”--uinput”  
