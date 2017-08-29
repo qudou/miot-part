@@ -17,13 +17,13 @@ musicbox 以当前用户收藏的歌单为频道列表。`CH-/+` 代表切换至
 ## 安装依赖软件包
 
 ```bash
-$ sudo apt-get install mpg123
-$ sudo apt-get install python-dev
-$ sudo pip install requests
-$ sudo pip install BeautifulSoup4
-$ sudo pip install pycrypto
-$ sudo pip install future
-$ sudo npm install forever -g
+$ [sudo] apt-get install mpg123
+$ [sudo] apt-get install python-dev
+$ [sudo] pip install requests
+$ [sudo] pip install BeautifulSoup4
+$ [sudo] pip install pycrypto
+$ [sudo] pip install future
+$ [sudo] npm install forever -g
 ```
 
 ## 红外接收功能安装与配置
@@ -56,13 +56,13 @@ MODULES=”lirc_rpi”
 测试红外线接收功能，首先使用命令 `/etc/init.d/lirc stop` 关闭 LIRC 软件，然后执行如下命令。
 
 ```bash
-$ sudo mode2 -d /dev/lirc0
+$ [sudo] mode2 -d /dev/lirc0
 ```
 
 最后，将文件 `musicbox/lircd.conf` 覆盖 LIRC 软件的相应文件
 
 ```bash
-$ sudo cp ~/lircd.conf /etc/lirc/lircd.conf
+$ [sudo] cp ~/lircd.conf /etc/lirc/lircd.conf
 ```
 
 ## 安装自启动脚本
@@ -70,17 +70,17 @@ $ sudo cp ~/lircd.conf /etc/lirc/lircd.conf
 1. 拷贝文件 `musicbox` 至目录 `/etc/init.d`
 
 ```bash
-$ sudo cp musicbox /etc/init.d/
+$ [sudo] cp musicbox /etc/init.d/
 ```
 
 2. 修改拷贝后文件的执行权限
 
 ```bash
-$ sudo chmod 755 musicbox
+$ [sudo] chmod 755 musicbox
 ```
 
 3. 添加开机启动项
 
 ```bash
-$ sudo update-rc.d musicbox defaults
+$ [sudo] update-rc.d musicbox defaults
 ```
