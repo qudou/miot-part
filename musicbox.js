@@ -210,6 +210,7 @@ $_().imports({
             });
             this.watch("200+", (e, d) => {
                 let now = new Date, hours = now.getHours(), minutes = now.getMinutes();
+                d.buf = !minutes;
                 d.speek = minutes ? `北京时间${hours}点${minutes}分` : `北京时间${hours}点整`;
                 this.notify("exec", ["pause speek resume", d]);
             });
