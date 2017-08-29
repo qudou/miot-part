@@ -58,7 +58,7 @@ MODULES=”lirc_rpi”
 $ sudo mode2 -d /dev/lirc0
 ```
 
-最后，将文件 `musicbox/lircd.conf` 覆盖 lirc 软件的相应文件
+最后，将文件 `musicbox/lircd.conf` 覆盖 LIRC 软件的相应文件
 
 ```bash
 $ sudo cp ~/lircd.conf /etc/lirc/lircd.conf
