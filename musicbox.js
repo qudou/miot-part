@@ -208,7 +208,7 @@ $_().imports({
                 d.speek = `${year}年${month+1}月${date}日，星期${week == 0 ? '日' : week}`;
                 this.notify("exec", ["pause speek resume", d]);
             });
-            this.watch("200+", (e, d) => {
+            this.watch("200+", (e, d) => { 
                 let now = new Date, hours = now.getHours(), minutes = now.getMinutes();
                 d.buf = !minutes;
                 d.speek = minutes ? `北京时间${hours}点${minutes}分` : `北京时间${hours}点整`;
