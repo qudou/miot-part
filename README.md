@@ -67,7 +67,7 @@ $ [sudo] cp ~/lircd.conf /etc/lirc/lircd.conf
 
 ## 安装自启动脚本
 
-1. 拷贝文件 `musicbox` 至目录 `/etc/init.d`
+1. 拷贝文件 `musicbox` 至目录 `/etc/init.d/`
 
 ```bash
 $ [sudo] cp musicbox /etc/init.d/
