@@ -318,7 +318,6 @@ $_("tools").imports({
         }
     },
     NetEase: {
-        xml: "<main id='netease'/>",
         fun: function (sys, items, opts) {
             let resolve, result = {},
                 PythonShell = require('python-shell'),
