@@ -62,7 +62,7 @@ $ [sudo] mode2 -d /dev/lirc0
 最后，将文件 `musicbox/lircd.conf` 覆盖 LIRC 软件的相应文件
 
 ```bash
-$ [sudo] cp ~/lircd.conf /etc/lirc/lircd.conf
+$ [sudo] cp lircd.conf /etc/lirc/lircd.conf
 ```
 
 ## 安装自启动脚本
