@@ -35,6 +35,7 @@ $_().imports({
             this.watch("error", (e, type, err) => {
                 console.log("my", err);
             });
+            this.glance("stop", e => this.unwatch());
             function rebuild(str) {
                 let c = str.charAt(0), s = str.substr(1);
                 c == "-" ? s.split(' ').forEach(item => {
@@ -214,6 +215,8 @@ $_().imports({
                 d.speek = minutes ? `北京时间${hours}点${minutes}分` : `北京时间${hours}点整`;
                 this.notify("exec", ["pause speek resume", d]);
             });
+            schedule.scheduleJob('0 7 * * *', e => this.notify("restart"));
+            schedule.scheduleJob('0 23 * * *', e => this.notify("stop"));
             schedule.scheduleJob('0 6-23 * * *', e => this.notify("keypress", "200+"));
         }
     }
