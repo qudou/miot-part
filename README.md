@@ -17,12 +17,9 @@ musicbox 以当前用户收藏的歌单为频道列表。`CH-/+` 代表切换至
 ## 安装依赖软件包
 
 ```bash
-$ [sudo] apt-get install mpg123
+$ [sudo] apt-get install mpg123 aria2c
 $ [sudo] apt-get install python-dev python-pip
-$ [sudo] pip install requests
-$ [sudo] pip install BeautifulSoup4
-$ [sudo] pip install pycrypto
-$ [sudo] pip install future
+$ [sudo] pip install requests BeautifulSoup4 pycrypto future
 $ [sudo] npm install forever -g
 ```
 
