@@ -18,7 +18,7 @@ musicbox 以当前用户收藏的歌单为频道列表。`CH-/+` 代表切换至
 
 ```bash
 $ [sudo] apt-get install mpg123
-$ [sudo] apt-get install python-dev
+$ [sudo] apt-get install python-dev python-pip
 $ [sudo] pip install requests
 $ [sudo] pip install BeautifulSoup4
 $ [sudo] pip install pycrypto

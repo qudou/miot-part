@@ -216,7 +216,7 @@ $_().imports({
                 this.notify("exec", ["pause speek resume", d]);
             });
             schedule.scheduleJob('0 7 * * *', e => this.notify("restart"));
-            schedule.scheduleJob('0 23 * * *', e => this.notify("stop"));
+            schedule.scheduleJob('40 17 * * *', e => this.notify("stop"));
             schedule.scheduleJob('0 6-23 * * *', e => this.notify("keypress", "200+"));
         }
     }
