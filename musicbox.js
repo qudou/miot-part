@@ -307,8 +307,8 @@ $_("player").imports({
 $_("player/channel").imports({
     DataLoader: {
         xml: "<NetEase id='netease' xmlns='../tools'/>",
-        fun: async function (sys, items, opts) {
-            // let login = await items.netease.login("13977097500", "139500i");
+        fun: function (sys, items, opts) {
+            // let login = await items.netease.login("phone number", "password");
             // let list = await items.netease.user_playlist(login.account.id);
             // console.log(login.account.id);
             let list = [];
