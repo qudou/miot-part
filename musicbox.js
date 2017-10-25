@@ -21,7 +21,6 @@ xmlplus("musicbox", (xp, $_, t) => {
 $_().imports({
     Index: {
         xml: "<main id='index' xmlns:i='.'>\
-                <i:Client id='client'/>\
                 <i:Musicbox id='musicbox'/>\
                 <i:Remote id='remote'/>\
                 <i:Speeker id='speek'/>\
@@ -50,15 +49,22 @@ $_().imports({
                     i !== -1 && cmds.splice(i, 1);
                 }) : (cmds = cmds.concat(s.split(' ')));
             }
+			require("getmac").getMac((err, mac) => {
+				if (err) throw err;
+				let MAC = mac.replace(/:/g, '') + '/';
+				sys.index.append("Client", { prefix: MAC });
+			});
             this.watch("mc-stop", e => this.unwatch("exec")).notify("mc-open").watch("next", next);
+			
         }
     },
     Client: {
-        xml: "<i:MQTT id='mqtt' xmlns:i='/xmlmqtt' xmlns:c='client' prefix='i/'>\
+        xml: "<i:MQTT id='mqtt' xmlns:i='/xmlmqtt' xmlns:c='client'>\
                 <c:Schedule id='schedule'/>\
                 <c:Control id='control'/>\
               </i:MQTT>",
-        cfg: { mqtt: { server: "mqtt://test.mosquitto.org", auth: {username: "user", password: "123456"} } },
+		map: { attrs: { mqtt: "prefix" } },
+        cfg: { mqtt: { server: "mqtt://t-store.cn:3000", auth: {username: "qudouo", password: "123456"} } },
         fun: function (sys, items, opts) {
             this.watch("publish", (e, topic, payload) => {
                 items.mqtt.publish(topic, JSON.stringify(payload));
@@ -516,9 +522,9 @@ $_("speeker").imports({
 $_("xmlmqtt").imports({
     MQTT: {
         opt: { server: "mqtt://test.mosquitto.org", prefix: "" },
-        fun: function (sys, items, opts) {
-            let table = this.children().hash(),
-                client  = require("mqtt").connect(opts.server, opts.auth);
+        fun: async function (sys, items, opts) {
+            let table = this.children().hash();
+            let client  = require("mqtt").connect(opts.server, opts.auth);
             client.on("connect", e => {
                 for ( let key in table )
                     client.subscribe(opts.prefix + key + "/in");

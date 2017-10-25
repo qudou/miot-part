@@ -12,6 +12,7 @@
   "author": "qudou",
   "license": "MIT",
   "dependencies": {
+    "getmac": "^1.2.1",
     "log4js": "^2.3.7",
     "md5": "^2.2.1",
     "mpg123": "^0.2.3",
