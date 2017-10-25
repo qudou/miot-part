@@ -17,28 +17,28 @@ musicbox 以当前用户收藏的歌单为频道列表。`CH-/+` 代表切换至
 ## 安装依赖软件包
 
 ```bash
-$ [sudo] apt-get install mpg123 aria2
-$ [sudo] apt-get install python-dev python-pip
-$ [sudo] pip install requests BeautifulSoup4 pycrypto future
-$ [sudo] npm install forever -g
+$ sudo apt-get install mpg123 aria2
+$ sudo apt-get install python-dev python-pip
+$ sudo pip install requests BeautifulSoup4 pycrypto future
+$ sudo npm install forever -g
 ```
 
 ## 安装自启动脚本
 
-1. 拷贝文件 `musicbox` 至目录 `/etc/init.d/`
+1. 移动文件 `musicbox` 至目录 `/etc/init.d/`
 
 ```bash
-$ [sudo] cp musicbox /etc/init.d/
+$ sudo mv musicbox /etc/init.d/
 ```
 
 2. 修改拷贝后文件的执行权限
 
 ```bash
-$ [sudo] chmod 755 /etc/init.d/musicbox
+$ sudo chmod 755 /etc/init.d/musicbox
 ```
 
 3. 添加开机启动项
 
 ```bash
-$ [sudo] update-rc.d musicbox defaults
+$ sudo update-rc.d musicbox defaults
 ```
