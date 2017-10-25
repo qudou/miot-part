@@ -6,36 +6,43 @@
  */
 
 const xmlplus = require("xmlplus");
+const fs = require('fs');
+const process = require('child_process');
+const schedule = require("node-schedule");
+const log4js = require('log4js');
+log4js.configure({
+  appenders: { musicbox: { type: 'file', filename: `${__dirname}/tmp/musicbox.log` } },
+  categories: { default: { appenders: ['musicbox'], level: 'debug' } }
+});
+const logger = log4js.getLogger('musicbox');
 
 xmlplus("musicbox", (xp, $_, t) => {
 
 $_().imports({
     Index: {
         xml: "<main id='index' xmlns:i='.'>\
+                <i:Client id='client'/>\
+                <i:Musicbox id='musicbox'/>\
                 <i:Remote id='remote'/>\
                 <i:Speeker id='speek'/>\
-                <i:Channel id='channel'/>\
-                <i:Playlist id='playlist'/>\
-                <i:Player id='player'/>\
+                <i:Buffer id='buffer'/>\
                 <i:Schedule id='schedule'/>\
+                <i:Monitor id='monitor'/>\
               </main>",
         map: { share: "speeker/BDAudio" },
         fun: function (sys, items, opts) {
             let cmds = [], data = {};
-            this.watch("exec", (e, c, d = {}) => {
+            function exec(e, c, d = {}) {
                 cmds = c.split(' ');
                 items.remote.lock();
-                this.notify(cmds.shift(), [data = d]);
-            });
-            this.watch("next", (e, str) => {
+                sys.index.notify(cmds.shift(), [data = d]);
+            }
+            function next(e, str) {
                 str && rebuild(str);
                 let cmd = cmds.shift();
-                cmd ? this.notify(cmd, [data]) : items.remote.unlock();
-            });
-            this.watch("error", (e, type, err) => {
-                console.log("my", err);
-            });
-            this.glance("stop", e => this.unwatch());
+                cmd ? sys.index.notify(cmd, [data]) : items.remote.unlock();
+            }
+            this.watch("mc-open", e => this.unwatch("exec").watch("exec", exec));
             function rebuild(str) {
                 let c = str.charAt(0), s = str.substr(1);
                 c == "-" ? s.split(' ').forEach(item => {
@@ -43,31 +50,35 @@ $_().imports({
                     i !== -1 && cmds.splice(i, 1);
                 }) : (cmds = cmds.concat(s.split(' ')));
             }
+            this.watch("mc-stop", e => this.unwatch("exec")).notify("mc-open").watch("next", next);
         }
+    },
+    Client: {
+        xml: "<i:MQTT id='mqtt' xmlns:i='/xmlmqtt' xmlns:c='client' prefix='i/'>\
+                <c:Schedule id='schedule'/>\
+                <c:Control id='control'/>\
+              </i:MQTT>",
+        cfg: { mqtt: { server: "mqtt://t-store.cn:3000", auth: {username: "qudouo", password: "123456"} } },
+        fun: function (sys, items, opts) {
+            this.watch("publish", (e, topic, payload) => {
+                items.mqtt.publish(topic, JSON.stringify(payload));
+            });
+        }
+    },
+    Musicbox: {
+        xml: "<main id='index' xmlns:i='player'>\
+                <i:Channel id='channel'/>\
+                <i:Playlist id='playlist'/>\
+                <i:Player id='player'/>\
+              </main>"
     },
     Remote: {
         fun: function (sys, items, opts) {
-            let locked = true,
-                last, timer, jobs = [],
-                lirc_node = require('lirc_node');
-            lirc_node.init();
-            lirc_node.addListener(data => {
-                if ( data.repeat != "00" ) return;
-                clearTimeout(timer);
-                if ( last && data.key == last.key ) {
-                    last = null;
-                    return this.notify("keypress", data.key + data.key);
-                }
-                last = data;
-                timer = setTimeout(e => {
-                    last = null;
-                    this.notify("keypress", data.key);
-                }, 400); 
-            });
+            let locked = true, jobs = [];
             this.watch("keypress", (e, key, save) => {
-                if (key == "CHCH")
+                if (key == "sh-reboot*")
                     return this.notify(key, {});
-                locked ? (save && jobs.push(key)) : key.match(/^[0-9]{1,2}$/) ? this.notify("NUM", {index: parseInt(key)}) : this.notify(key, {});
+                locked ? (save && jobs.push(key)) : this.notify(key, {});
             });
             return { lock: e => locked = 1, unlock: e => jobs.length ? this.notify(jobs.shift()) : (locked = 0) };
         }
@@ -78,86 +89,182 @@ $_().imports({
                  <i:Player id='player'/>\
               </main>",
         fun: function (sys, items, opts) {
-            let fs = require("fs");
             this.watch("speek", async (e, d) => {
                 try {
                     let file = await items.bdAudio(d.speek);
                     await items.player.play(file);
                     d.buf ? (d.buf = undefined) : fs.unlinkSync(file);
+                } catch (error) {
+                    logger.error(error);
+                } finally {
                     this.notify("next");
-                } catch (err) {
-                    this.notify("error", ["speek", err]);
                 }
             });
         }
     },
+    Buffer: {
+        xml: "<NetEase id='netease' xmlns='player/tools'/>",
+        fun: function (sys, items, opts) {
+            let path = `${__dirname}/tmp/buffer`;
+            function isExist(files, song) {
+                let file = song.mp3Url.split('/').pop();
+                return files.indexOf(file) != -1;
+            }
+            async function download() {
+                let files = fs.readdirSync(path);
+                let songs = await items.netease.personal_fm() || [];
+                for ( var song of songs ) {
+                    song.mp3Url = (await items.netease.songs_detail_new_api(song.id)).url;
+                    if ( !isExist(files, song) ) break;
+                }
+                if ( files.length > 120 ) {
+                    let i = Math.floor(Math.random() * files.length);
+                    fs.unlink(`${path}/${files[i]}`, err => {err && logger.info(err)});
+                }
+                if ( song && !isExist(files, song)) {                   
+                    process.exec(`aria2c ${song.mp3Url} -d ${path}`, err => {err && logger.error(err)});
+                }
+            }
+            setInterval(download, 1 * 60 * 60 * 1000);
+        }
+    },
+    Schedule: {
+        fun: function (sys, items, opts) {
+            this.watch("sh-time", (e, d) => {
+                let now = new Date, hours = now.getHours();
+                d.buf = true;
+                d.speek = `北京时间${hours}点整`;
+                this.notify("exec", ["pl-pause speek pl-resume", d]);
+            });
+            this.watch("sh-reboot*", e => {
+                process.exec("reboot", err => {err && logger.error(err)});
+            });
+            schedule.scheduleJob('0 3 * * *', e => this.notify("mc-stop"));
+            schedule.scheduleJob('0 7 * * *', e => this.notify("sh-reboot*"));
+            schedule.scheduleJob('0 6-23 * * *', e => this.notify("keypress", "sh-time", true));
+        }
+    },
+    Monitor: {
+        fun: function (sys, items, opts) {
+            let key = 0;
+            let path = `${__dirname}/tmp/ping.log`;
+            let ping = `ping www.baidu.com -c 10 > ${path}`;
+            let grep = `grep "packet loss" ${path} |awk '{print $6}' |sed 's/%//g'`;
+            setInterval(() => {
+                if ( !key ) return;
+                process.exec(`${ping}\n${grep}`, (error, stdout) => {
+                    parseInt(stdout || 100) > 70 ? this.notify("ch-local", {}) : this.notify("load-remotes*").notify("ch-restore", {});
+                    logger.debug(`packet loss ${stdout || 100}%`);
+                });
+            }, 1000 * 60 * 3);
+            setInterval(e => {
+                process.exec(`bash ${__dirname}/bluetooth.sh`, err => {err && console.log(err)});
+            }, 1000 * 60 * 0.5);
+            this.watch("pl-paused", e => key = 1).watch("pl-resumed", e => key = 0);
+        }
+    }
+});
+
+$_("client").imports({
+    Schedule: {
+        xml: "<main id='schedule'/>",
+        fun: function (sys, items, opts) {
+            let jobs = [],
+                schedule = require("node-schedule");
+            this.on("enter", (e, d) => {
+                jobs.forEach(job => job.cancel());
+                let list = JSON.parse(d.msgin);
+                jobs.splice(0);
+                list.forEach(item => jobs.push(make(item)));
+                d.msgout = '{"code": 0}';
+                this.trigger("publish", d);
+            });
+            function make(item) {
+                return schedule.scheduleJob(item.time, e => {
+                    sys.schedule.notify(item.action, {});
+                });
+            }
+        }
+    },
+    Control: {
+        fun: function (sys, items, opts) {
+            let table = {
+                "CH+": "ch-next*", "CH-": "ch-prev*", "|<<": "pl-prev*", ">>|": "pl-next*", ">||": "pl-toggle*", "-": "pl-vol-prev*", "+": "pl-vol-next*",
+                "RELOAD": "load-remotes*", "REBOOT": "sh-reboot*"
+            };
+            let config = { "RELOAD": { force: true } }
+            this.on("enter", (e, d) => {
+                this.notify("mc-open");
+                let key = JSON.parse(d.msgin).key;
+                this.notify("keypress", table[key] || key, config[key] || {});
+            });
+        }
+    }
+});
+
+$_("player").imports({
     Channel: {
         xml: "<DataLoader id='channel' xmlns='channel'/>",
         fun: function (sys, items, opts) {
-            let cursor = 0, list = [];
-            this.watch("CH-", (e, d) => { 
+            let prev = 0, cursor = 0, list = [];
+            this.watch("ch-prev*", (e, d) => {
                 if ( --cursor == -1 )
-                    cursor = list.length - 1;
+                    prev = cursor, cursor = list.length - 1;
                 d.channel = list[cursor].list;
-                d.speek = `上一频道：${list[cursor].name}`;
-                this.notify("exec", ["pause speek ch_change", d]);
+                this.notify("exec", ["pl-change", d]);
             });
-            this.watch("CH+", (e, d) => {
+            this.watch("ch-next*", (e, d) => {
                 if ( ++cursor == list.length )
-                    cursor = 0;
+                    prev = cursor, cursor = 0;
                 d.channel = list[cursor].list;
-                d.speek = `下一频道：${list[cursor].name}`;
-                this.notify("exec", ["pause speek ch_change", d]);
+                this.notify("exec", ["pl-change", d]);
             });
-            this.watch("CH", (e, d) => {
-                d.speek = `当前频道：${list[cursor].name}，曲目量：${list[cursor].list.length()}`;
-                this.notify("exec", ["pause speek resume", d]);
+            this.watch("ch-local", (e, d) => {
+                if ( 0 == cursor ) return;
+                prev = cursor;
+                d.channel = list[cursor = 0].list;
+                this.notify("exec", ["pl-change", d]);
             });
-            this.on("data_ready", (e, _list, d) => {
+            this.watch("ch-restore", (e, d) => {
+                if ( prev == cursor ) return;
+                cursor = prev;
+                d.channel = list[cursor].list;
+                this.notify("exec", ["pl-change", d]);
+            });
+            this.watch("ch-refresh", (e, d) => {
+                list[prev] || (prev = 0);
+                list[cursor] || (cursor = 0);
+                d.keep = true;
+                d.channel = list[cursor].list;
+                this.notify("exec", ["pl-change", d]);
+            });
+            this.on("ch-ready", (e, _list, d) => {
                 list = _list;
                 d.channel = list[cursor].list;
-                d.buf = true;
-                d.speek = "网易云音乐，听见好时光！";
-                console.log("service is ready");
-                this.notify("exec", ["speek ch_change", d]);
+                logger.info("service is ready");
+                this.notify("exec", ["pl-change", d]);
             });
         }
     },
     Playlist: {
         fun: function (sys, items, opts) {
-            let channel, volume = 100;
-            this.watch("ch_change", (e, d) => {
+            let channel;
+            this.watch("pl-change", (e, d) => {
+                if ( channel == d.channel ) 
+                    return this.notify("next");
                 d.song = (channel = d.channel).curr();
-                d.speek = `下面播放曲目：${d.song.name}，演唱者：${d.song.artists[0].name}`;
-                this.notify("next", "+speek open");
+                this.notify("next", d.keep ? "+pl-keep" : "+pl-pause pl-open");
             });
-            this.watch("PREV", (e, d) => {
+            this.watch("pl-prev*", (e, d) => {
                 d.song = channel.prev();
-                d.speek = `上一首：${d.song.name}，演唱者：${d.song.artists[0].name}`;
-                this.notify("exec", ["pause speek open", d]);
+                this.notify("exec", ["pl-pause pl-open", d]);
             });
             this.watch("_next", (e, d) => {
                 channel.next().then(item => {
                     d.song = item;
-                    d.speek = `下一首：${d.song.name}，演唱者：${d.song.artists[0].name}`;
                     this.notify("next");
                 });
-            }).watch("NEXT", (e, d) => this.notify("exec", ["pause _next speek open", d]));
-            this.watch("NUM", (e, d) => {
-                d.song = channel.index(d.index);
-                if ( !d.song ) {
-                    d.speek = `序数为${d.index}的曲目不存在，请重新选择`;
-                    return this.notify("exec", ["pause speek resume", d]);
-                }
-                d.speek = `下面播放曲目：${d.song.name}，演唱者：${d.song.artists[0].name}`;
-                this.notify("exec", ["pause speek open", d]);
-            });
-            this.watch("EQ", (e, d) => {
-                d.song = channel.curr();
-                d.speek = `当前曲目：${d.song.name}，序数：${channel.cursor()}，演唱者：${d.song.artists[0].name}，音量：${volume}%`;
-                this.notify("exec", ["pause speek resume", d]);
-            });
-            this.watch("volume", (e, vol) => volume = parseInt(vol));
+            }).watch("pl-next*", (e, d) => this.notify("exec", ["pl-pause _next pl-open"]));
         }
     },
     Player: {
@@ -165,79 +272,66 @@ $_().imports({
         fun: function (sys, items, opts) {
             let player = items.player,
                 song, stat = "ready";
-            this.watch("pause", (e, d) => {
-                stat == "playing" ? player.pause() : this.notify("next", "-resume");
+            this.watch("pl-pause", (e, d) => {
+                stat == "playing" ? player.pause() : this.notify("next", "-pl-resume");
             });
             player.on("pause", e => {
                 stat = "pause";
-                this.notify("next");
+                this.notify("next").notify("pl-paused");
             });
-            this.watch("resume", (e, d) => {
+            this.watch("pl-resume", (e, d) => {
                 stat == "pause" ? player.pause() : this.notify("next");
             });
             player.on("resume", e => {
                 stat = "playing";
-                this.notify("next");
+                this.notify("next").notify("pl-resumed");
             });
-            this.watch("PLAY/PAUSE", (e, d) => {
-                this.notify("exec", stat == "playing" ? "pause" : "resume");
+            this.watch("pl-toggle*", (e, d) => {
+                this.notify("exec", stat == "playing" ? "pl-pause" : "pl-resume");
             });
-            this.watch("play", (e, d) => {
+            this.watch("pl-play", (e, d) => {
                 player.play((song = d.song).mp3Url);
             });
             player.on("end", e => {
                 stat = "ready";
-                song.mp3Url ? this.notify("NEXT", {}) : this.notify("exec", ["open", {song: song}]);
+                song.mp3Url ? this.notify("pl-next*") : this.notify("exec", ["pl-open", {song: song}]);
+            });
+            this.watch("pl-keep", (e, d) => {
+                stat != "pause" ? this.notify("next", "+pl-pause pl-open") : this.notify("next");
             });
             player.on("error", e => song.mp3Url = null);
-        }
-    },
-    Schedule: {
-        fun: function (sys, items, opts) {
-            let schedule = require("node-schedule");
-            this.glance("CHCH", (e, d) => {
-                console.log("restart");
-                d.buf = true;
-                d.speek = `网易云音乐即将重新启动，请稍后`;
-                this.notify("exec", ["pause speek restart", d]);
-            });
-            this.watch("restart", (e, d) => {
-                require('child_process').exec("service musicbox restart", err => {err && console.log(err)});
-            });
-            this.watch("100+", (e, d) => {
-                let now = new Date, year = now.getFullYear(), month = now.getMonth(), day = now.getDate(), week = now.getDay();
-                d.speek = `${year}年${month+1}月${date}日，星期${week == 0 ? '日' : week}`;
-                this.notify("exec", ["pause speek resume", d]);
-            });
-            this.watch("200+", (e, d) => { 
-                let now = new Date, hours = now.getHours(), minutes = now.getMinutes();
-                d.buf = !minutes;
-                d.speek = minutes ? `北京时间${hours}点${minutes}分` : `北京时间${hours}点整`;
-                this.notify("exec", ["pause speek resume", d]);
-            });
-            schedule.scheduleJob('0 7 * * *', e => this.notify("restart"));
-            schedule.scheduleJob('40 17 * * *', e => this.notify("stop"));
-            schedule.scheduleJob('0 6-23 * * *', e => this.notify("keypress", "200+"));
         }
     }
 });
 
-$_("channel").imports({
+$_("player/channel").imports({
     DataLoader: {
-        xml: "<NetEase id='netease' xmlns='/tools'/>",
+        xml: "<NetEase id='netease' xmlns='../tools'/>",
         fun: async function (sys, items, opts) {
-            let login = await items.netease.login("user", "pass"); // 这里输入用户名与密码（注：临时硬编码）
-            let list = await items.netease.user_playlist(login.account.id);
+            // let login = await items.netease.login("13977097500", "139500i");
+            // let list = await items.netease.user_playlist(login.account.id);
+            // console.log(login.account.id);
+            let list = [];
             function create(widget, opts) {
-                return xp.create("//musicbox/channel/" + widget, opts);
+                return xp.create("//musicbox/player/channel/" + widget, opts);
             }
-            for( let item of list ) {
-                let songs = await items.netease.playlist_detail(item.id);
-                songs.length && (item.list = create("Songlist", songs));
+            list.unshift({name: "私人电台", list: sys.netease.append("PersonalFM", {list: []}).value()});
+            async function load_remotes(e, force) {
+                if ( !force && list.length > 2 ) return;
+                logger.info("load-remotes begin...");
+                let plist = await items.netease.user_playlist(133253499) || [];
+                for( let item of plist ) {
+                    let songs = await items.netease.playlist_detail(item.id) || [];
+                    songs.length && (item.list = create("Songlist", songs));
+                }
+                if ( !plist.length ) return;
+                list.splice(1);
+                plist.forEach(item => list.push(item));
+                sys.netease.notify("ch-refresh", {}).glance("load-remotes*", load_remotes);
+                logger.info("load-remotes complete");
             }
-            let songs = await items.netease.personal_fm();
-            list.unshift({name: "私人电台", list: sys.netease.append("PersonalFM", {list: songs}).value()});
-            sys.netease.trigger("data_ready", [list, {}]);
+            this.glance("load-remotes*", load_remotes).notify("load-remotes*");
+            setTimeout(e => this.trigger("ch-ready", [list, {}]), 0);
         }
     },
     Songlist: {
@@ -270,9 +364,10 @@ $_("channel").imports({
         }
     },
     PersonalFM: {
-        xml: "<NetEase id='netease' xmlns='/tools'/>",
         fun: function (sys, items, opts) {
-            let cursor = 0, list = opts.list;
+            let cursor = 0;
+            let list = opts.list;
+            let path = `${__dirname}/tmp/buffer`;
             function cursor_() {
                 return cursor;
             }
@@ -284,17 +379,30 @@ $_("channel").imports({
                 return list.length;
             }
             function curr() {
-                return list[cursor];
+                list[cursor] || list.push(local());
+                return update(cursor);
             }
             function prev() {
                 if ( --cursor == -1 )
                     cursor = list.length - 1;
-                return list[cursor];
+                return update(cursor);
             }
             async function next() {
-                if ( list[++cursor] ) 
-                    return list[cursor];
-                list = list.concat(await items.netease.personal_fm());
+                if ( list[++cursor] )
+                    return update(cursor);
+                list.push(local());
+                list.splice(0, 1);
+                return list[--cursor];
+            }
+            function local() {
+                let files = fs.readdirSync(path),
+                    i = Math.floor(Math.random()*files.length);
+                return files[i].split('.').pop() == "mp3" ? { mp3Url: `${path}/${files[i]}` } : local();
+            }
+            function update(cursor) {
+                let files = fs.readdirSync(path);
+                if ( files.indexOf(list[cursor]) == -1 )
+                    list[cursor] = local();
                 return list[cursor];
             }
             return { cursor: cursor_, index: index, length: length, curr: curr, prev: prev, next: next };
@@ -302,45 +410,47 @@ $_("channel").imports({
     }
 });
 
-$_("tools").imports({
+$_("player/tools").imports({
     Player: {
         xml: "<NetEase id='netease'/>",
         fun: function (sys, items, opts) {
             let volume = 100,
                 mpg = require('mpg123'),
                 player = new mpg.MpgPlayer();
-            player.on("volume", vol => this.notify("volume", vol));
-            this.watch("VOL-", e => volume > 0 && player.volume(volume -= 10));
-            this.watch("VOL+", e => volume < 100 && player.volume(volume += 10));
-            this.watch("open", async (e, d) => {
+            this.watch("pl-vol-prev*", e => volume > 0 && player.volume(volume -= 10));
+            this.watch("pl-vol-next*", e => volume < 100 && player.volume(volume += 10));
+            this.watch("pl-open", async (e, d) => {
                 if ( !d.song.mp3Url )
                     d.song.mp3Url = (await items.netease.songs_detail_new_api(d.song.id)).url;
-                d.song.mp3Url ? this.notify("next", "+play") : this.notify("NEXT", {});
+                d.song.mp3Url ? this.notify("next", "+pl-play") : this.notify("pl-next*", {});
             });
             return player;
         }
     },
     NetEase: {
         fun: function (sys, items, opts) {
-            let resolve, result = {},
+            let resolve, reject, result = {},
                 PythonShell = require('python-shell'),
                 funList = ["login", "personal_fm", "top_songlist", "songs_detail_new_api", "get_version", "daily_signin", "recommend_playlist", "user_playlist", "playlist_detail", "songs_detail", "channel_detail"];
-            function request() {
+            function request(...values) {
                 let pyshell = new PythonShell("playlist.py", {scriptPath: __dirname});
-                pyshell.send(JSON.stringify([].slice.call(arguments)));
-                pyshell.once('message', message => resolve(JSON.parse(message)));
+                pyshell.send(JSON.stringify(values));
+                pyshell.once('message', message => {
+                    let msg = JSON.parse(message);
+                    resolve(msg == -1 ? null : msg);
+                });
                 pyshell.end((err) => {if (err) throw err});
-                return new Promise((resolve_, reject) => resolve = resolve_);
+                return new Promise((resolve_, reject_) => {resolve = resolve_; reject = reject_;});
             }
             funList.forEach(key => {
-                result[key] = async function() {return await request.apply(null, [key].concat([].slice.call(arguments)))};
+                result[key] = async (...values) => {return await request.apply(null, [key].concat(values))};
             });
             return result;
         }
     }
 });
 
-$_("speeker").imports({ 
+$_("speeker").imports({
     Player: {
         fun: function (sys, items, opts) {
             let resolve,
@@ -399,6 +509,56 @@ $_("speeker").imports({
                 });
                 return new Promise((res, rej) => {resolve = res; reject = rej});
             }
+        }
+    }
+});
+
+$_("xmlmqtt").imports({
+    MQTT: {
+        opt: { server: "mqtt://test.mosquitto.org", prefix: "" },
+        fun: function (sys, items, opts) {
+            let table = this.children().hash(),
+                client  = require("mqtt").connect(opts.server, opts.auth);
+            client.on("connect", e => {
+                for ( let key in table )
+                    client.subscribe(opts.prefix + key + "/in");
+                console.log("connected to " + opts.server);
+            });
+            client.on("message", (topic, message) => {
+                console.log(topic, message);
+                let key = topic.substr(opts.prefix.length);
+                key = key.substring(0, key.lastIndexOf("/in"));
+                table[key].trigger("enter", {msgin: message.toString()}, false);
+            });
+            this.on("publish", "./*[@id]", function (e, d) {
+                console.log(opts.prefix + this + "/out", d.msgout);
+                e.stopPropagation();
+                client.publish(opts.prefix + this + "/out", d.msgout);
+            });
+            return client;
+        }
+    },
+    Flow: {
+        fun: function ( sys, items, opts ) {
+            var first = this.first(),
+                table = this.find("./*[@id]").hash();
+            this.on("start", (e, d) => {
+                d.ptr = first;
+                first.trigger("start", d, false);
+            });
+            this.on("next", (e, d, next) => {
+                e.stopPropagation();
+                if ( next == undefined ) {
+                    d.ptr = d.ptr.next();
+                    if ( !d.ptr )
+                        throw new Error("next object not found")
+                    d.ptr.trigger("start", d, false);
+                } else if ( table[next] ) {
+                    table[next].trigger("start", d, false);
+                } else {
+                    throw new Error("invalid next: " + next);
+                }
+            });
         }
     }
 });
