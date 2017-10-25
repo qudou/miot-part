@@ -49,13 +49,14 @@ $_().imports({
                     i !== -1 && cmds.splice(i, 1);
                 }) : (cmds = cmds.concat(s.split(' ')));
             }
-			require("getmac").getMac((err, mac) => {
-				if (err) throw err;
-				let MAC = mac.replace(/:/g, '') + '/';
-				sys.index.append("Client", { prefix: MAC });
-			});
+            require("getmac").getMac((err, mac) => {
+                if (err) throw err;
+                let MAC = mac.replace(/:/g, '') + '/';
+                sys.index.append("Client", { prefix: MAC });
+                logger.info(`the mac address is ${mac}`);
+            });
             this.watch("mc-stop", e => this.unwatch("exec")).notify("mc-open").watch("next", next);
-			
+            
         }
     },
     Client: {
@@ -63,7 +64,7 @@ $_().imports({
                 <c:Schedule id='schedule'/>\
                 <c:Control id='control'/>\
               </i:MQTT>",
-		map: { attrs: { mqtt: "prefix" } },
+        map: { attrs: { mqtt: "prefix" } },
         cfg: { mqtt: { server: "mqtt://t-store.cn:3000", auth: {username: "qudouo", password: "123456"} } },
         fun: function (sys, items, opts) {
             this.watch("publish", (e, topic, payload) => {
@@ -397,8 +398,9 @@ $_("player/channel").imports({
                 if ( list[++cursor] )
                     return update(cursor);
                 list.push(local());
-                list.splice(0, 1);
-                return list[--cursor];
+                if ( list.length > 100 )
+                    list.splice(0, 1), --cursor;
+                return list[cursor];
             }
             function local() {
                 let files = fs.readdirSync(path),
@@ -407,7 +409,8 @@ $_("player/channel").imports({
             }
             function update(cursor) {
                 let files = fs.readdirSync(path);
-                if ( files.indexOf(list[cursor]) == -1 )
+                let file = list[cursor].mp3Url.split('/').pop();
+                if ( files.indexOf(file) == -1 )
                     list[cursor] = local();
                 return list[cursor];
             }
