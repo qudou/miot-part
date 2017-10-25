@@ -58,7 +58,7 @@ $_().imports({
                 <c:Schedule id='schedule'/>\
                 <c:Control id='control'/>\
               </i:MQTT>",
-        cfg: { mqtt: { server: "mqtt://t-store.cn:3000", auth: {username: "qudouo", password: "123456"} } },
+        cfg: { mqtt: { server: "mqtt://test.mosquitto.org", auth: {username: "user", password: "123456"} } },
         fun: function (sys, items, opts) {
             this.watch("publish", (e, topic, payload) => {
                 items.mqtt.publish(topic, JSON.stringify(payload));
