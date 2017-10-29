@@ -51,8 +51,8 @@ $_().imports({
             }
             require("getmac").getMac((err, mac) => {
                 if (err) throw err;
-                let MAC = mac.replace(/:/g, '') + '/';
-                sys.index.append("Client", { prefix: MAC });
+                let MAC = mac.replace(/:/g, '');
+                sys.index.append("Client", { clientId: MAC });
                 logger.info(`the mac address is ${mac}`);
             });
             this.watch("mc-stop", e => this.unwatch("exec")).notify("mc-open").watch("next", next);
@@ -64,8 +64,8 @@ $_().imports({
                 <c:Schedule id='schedule'/>\
                 <c:Control id='control'/>\
               </i:MQTT>",
-        map: { attrs: { mqtt: "prefix" } },
-        cfg: { mqtt: { server: "mqtt://t-store.cn:3000", auth: {username: "qudouo", password: "123456"} } },
+        map: { attrs: { mqtt: "clientId" } },
+        cfg: { mqtt: { server: "mqtt://t-store.cn:3000", username: "qudouo", password: "123456" } },
         fun: function (sys, items, opts) {
             this.watch("publish", (e, topic, payload) => {
                 items.mqtt.publish(topic, JSON.stringify(payload));
@@ -164,9 +164,12 @@ $_().imports({
                     logger.debug(`packet loss ${stdout || 100}%`);
                 });
             }, 1000 * 60 * 3);
-            setInterval(e => {
-                process.exec(`bash ${__dirname}/bluetooth.sh`, err => {err && console.log(err)});
-            }, 1000 * 60 * 0.5);
+            (function bluetooth() {
+                process.exec(`bash ${__dirname}/bluetooth.sh`, err => {
+					if (err) throw err;
+					setTimeout(bluetooth, 30 * 1000);
+				});
+            }());
             this.watch("pl-paused", e => key = 1).watch("pl-resumed", e => key = 0);
         }
     }
@@ -524,25 +527,25 @@ $_("speeker").imports({
 
 $_("xmlmqtt").imports({
     MQTT: {
-        opt: { server: "mqtt://test.mosquitto.org", prefix: "" },
+        opt: { server: "mqtt://test.mosquitto.org" },
         fun: async function (sys, items, opts) {
             let table = this.children().hash();
-            let client  = require("mqtt").connect(opts.server, opts.auth);
+            let client  = require("mqtt").connect(opts.server, opts);
             client.on("connect", e => {
                 for ( let key in table )
-                    client.subscribe(opts.prefix + key + "/in");
+                    client.subscribe(`${opts.clientId}/${key}/in`);
                 console.log("connected to " + opts.server);
             });
             client.on("message", (topic, message) => {
                 console.log(topic, message);
-                let key = topic.substr(opts.prefix.length);
+                let key = topic.substr(opts.clientId.length + 1);
                 key = key.substring(0, key.lastIndexOf("/in"));
                 table[key].trigger("enter", {msgin: message.toString()}, false);
             });
             this.on("publish", "./*[@id]", function (e, d) {
-                console.log(opts.prefix + this + "/out", d.msgout);
+                console.log(`${opts.clientId}/${this}/out`, d.msgout);
                 e.stopPropagation();
-                client.publish(opts.prefix + this + "/out", d.msgout);
+                client.publish(`${opts.clientId}/${this}/out`, d.msgout);
             });
             return client;
         }
