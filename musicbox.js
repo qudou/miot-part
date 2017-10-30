@@ -11,8 +11,8 @@ const process = require('child_process');
 const schedule = require("node-schedule");
 const log4js = require('log4js');
 log4js.configure({
-  appenders: { musicbox: { type: 'file', filename: `${__dirname}/tmp/musicbox.log` } },
-  categories: { default: { appenders: ['musicbox'], level: 'debug' } }
+    appenders: { musicbox: { type: 'file', filename: `${__dirname}/tmp/musicbox.log` } },
+    categories: { default: { appenders: ['musicbox'], level: 'debug' } }
 });
 const logger = log4js.getLogger('musicbox');
 
