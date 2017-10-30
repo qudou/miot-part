@@ -35,15 +35,15 @@ $_().imports({
                 sys.index.append("Client", { clientId: MAC });
                 logger.info(`the mac address is ${mac}`);
             });
-			this.notify("*", "pl-next*");
-			logger.info("service is ready");
+            this.notify("*", "pl-next*");
+            logger.info("service is ready");
         }
     },
     Musicbox: {
-		xml: "<main xmlns:i='musicbox'>\
-				<i:Player id='player'/>\
-				<i:Songlist id='songlist'/>\
-			  </main>",
+        xml: "<main xmlns:i='musicbox'>\
+                <i:Player id='player'/>\
+                <i:Songlist id='songlist'/>\
+              </main>",
         fun: function (sys, items, opts) {
             let list = items.songlist;
             this.watch("pl-next*", (e, d) => {
@@ -53,22 +53,22 @@ $_().imports({
         }
     },
     Router: {
-		xml: "<main id='router'/>",
+        xml: "<main id='router'/>",
         fun: function (sys, items, opts) {
-			let cmds = [], data = {},
-				locked = 0, jobs = [];
+            let cmds = [], data = {},
+                locked = 0, jobs = [];
             function exec(e, c, d = {}) {
                 locked = 1;
                 cmds = c.split(' ');
                 sys.router.notify(cmds.shift(), [data = d]);
             }
-			this.watch("rt-stop", e => this.unwatch("exec"));
+            this.watch("rt-stop", e => this.unwatch("exec"));
             this.watch("next", (e, str) => {
                 str && rebuild(str);
                 let cmd = cmds.shift();
                 cmd ? this.notify(cmd, [data]) : unlock();
             });
-			this.watch("rt-open", e => this.unwatch("exec").watch("exec", exec));
+            this.watch("rt-open", e => this.unwatch("exec").watch("exec", exec));
             function rebuild(str) {
                 let c = str.charAt(0), s = str.substr(1);
                 c == "-" ? s.split(' ').forEach(item => {
@@ -76,9 +76,9 @@ $_().imports({
                     i !== -1 && cmds.splice(i, 1);
                 }) : (cmds = cmds.concat(s.split(' ')));
             }
-			function unlock() {
-				jobs.length ? this.notify(jobs.shift()) : (locked = 0);
-			}
+            function unlock() {
+                jobs.length ? this.notify(jobs.shift()) : (locked = 0);
+            }
             this.watch("*", (e, key, save) => {
                 if (key == "sh-reboot*")
                     return this.notify(key, {});
@@ -142,8 +142,8 @@ $_().imports({
             this.watch("sh-reboot*", e => {
                 process.exec("reboot", err => {err && logger.error(err)});
             });
-			this.watch("rt-open", e => logger.info("player opened"));
-			this.watch("rt-stop", e => logger.info("player stopped"));
+            this.watch("rt-open", e => logger.info("player opened"));
+            this.watch("rt-stop", e => logger.info("player stopped"));
             schedule.scheduleJob('0 23 * * *', e => this.notify("rt-stop"));
             schedule.scheduleJob('0 07 * * *', e => this.notify("rt-open").notify("*", "pl-next*"));
             schedule.scheduleJob('0 6-23 * * *', e => this.notify("*", "sh-time*", 1));
@@ -153,9 +153,9 @@ $_().imports({
         fun: function (sys, items, opts) {
             (function bluetooth() {
                 process.exec(`bash ${__dirname}/bluetooth.sh`, err => {
-					if (err) throw err;
-					setTimeout(bluetooth, 30 * 1000);
-				});
+                    if (err) throw err;
+                    setTimeout(bluetooth, 30 * 1000);
+                });
             }());
         }
     },
@@ -212,8 +212,8 @@ $_("client").imports({
 $_("musicbox").imports({
     Player: {
         fun: function (sys, items, opts) {
-			let stat = "ready",
-				mpg = require('mpg123'),
+            let stat = "ready",
+                mpg = require('mpg123'),
                 player = new mpg.MpgPlayer();
             this.watch("pl-pause", (e, d) => {
                 stat == "playing" ? player.pause() : this.notify("next");
@@ -282,10 +282,10 @@ $_("speeker").imports({
             let mpg = require('mpg123'),
                 player = new mpg.MpgPlayer();
             function play(file) {
-				return new Promise(resolve => {
-					player.play(file);
-					player.once("end", e => resolve(true));
-				});
+                return new Promise(resolve => {
+                    player.play(file);
+                    player.once("end", e => resolve(true));
+                });
             }
             player.on("error", err => {throw err});
             return { play: play };
