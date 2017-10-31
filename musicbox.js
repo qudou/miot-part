@@ -29,14 +29,14 @@ $_().imports({
                 <Monitor id='monitor'/>\
               </main>",
         fun: function (sys, items, opts) {
+            this.notify("*", "pl-next*");
+            logger.info("service is ready");
             require("getmac").getMac((err, mac) => {
                 if (err) throw err;
                 let MAC = mac.replace(/:/g, '');
                 sys.index.append("Client", { clientId: MAC });
                 logger.info(`the mac address is ${mac}`);
             });
-            this.notify("*", "pl-next*");
-            logger.info("service is ready");
         }
     },
     Musicbox: {
@@ -79,10 +79,10 @@ $_().imports({
             function unlock() {
                 jobs.length ? this.notify(jobs.shift()) : (locked = 0);
             }
-            this.watch("*", (e, key, save) => {
-                if (key == "sh-reboot*")
-                    return this.notify(key, {});
-                locked ? (save && jobs.push(key)) : this.notify(key, {});
+            this.watch("*", (e, key, save, d = {}) => {
+                if (key.split('').pop() == '#')
+                    return this.notify(key, d);
+                locked ? (save && jobs.push(key)) : this.notify(key, d);
             }).notify("rt-open");
         }
     },
@@ -124,11 +124,12 @@ $_().imports({
                     let i = Math.floor(Math.random() * files.length);
                     fs.unlink(`${path}/${files[i]}`, err => {err && logger.info(err)});
                 }
-                if ( song && !isExist(files, song)) {                   
+                if ( song && !isExist(files, song)) {
                     process.exec(`aria2c ${song.mp3Url} -d ${path}`, err => {err && logger.error(err)});
                 }
+                setTimeout(download, files.length < 256 ? 15 * 60 * 1000 : 3600 * 1000);
             }
-            setInterval(download, 1 * 60 * 60 * 1000);
+            setTimeout(download, 15 * 60 * 1000);
         }
     },
     Schedule: {
@@ -139,14 +140,14 @@ $_().imports({
                 d.speek = `北京时间${hours}点整`;
                 this.notify("exec", ["pl-pause speek pl-resume", d]);
             });
-            this.watch("sh-reboot*", e => {
+            this.watch("sh-reboot#", e => {
                 process.exec("reboot", err => {err && logger.error(err)});
             });
             this.watch("rt-open", e => logger.info("player opened"));
             this.watch("rt-stop", e => logger.info("player stopped"));
-            schedule.scheduleJob('0 23 * * *', e => this.notify("rt-stop"));
-            schedule.scheduleJob('0 07 * * *', e => this.notify("rt-open").notify("*", "pl-next*"));
-            schedule.scheduleJob('0 6-23 * * *', e => this.notify("*", "sh-time*", 1));
+            schedule.scheduleJob('30 17 * * *', e => this.notify("rt-stop"));
+            schedule.scheduleJob('00 07 * * *', e => this.notify("rt-open").notify("*", "pl-next*"));
+            schedule.scheduleJob('0 6-23 * * *', e => this.notify("*", ["sh-time*", 1]));
         }
     },
     Monitor: {
@@ -197,13 +198,13 @@ $_("client").imports({
     },
     Control: {
         fun: function (sys, items, opts) {
-            let table = {
-                ">||": "pl-toggle*", "-": "pl-vol-prev*", "+": "pl-vol-next*", "REBOOT": "sh-reboot*"
-            };
-            this.on("enter", (e, d) => {
+            let set = new Set(
+                ["pl-toggle*", "pl-vol#", "sh-reboot#"]
+            );
+            this.on("enter", (e, dd) => {
                 this.notify("rt-open");
-                let key = JSON.parse(d.msgin).key;
-                this.notify("*", table[key] || key, {});
+                let d = JSON.parse(dd.msgin);
+                set.has(d.key) && this.notify("*", [d.key, 0, d]);
             });
         }
     }
@@ -237,7 +238,11 @@ $_("musicbox").imports({
             });
             player.on("end", e => {
                 stat = "ready";
-                this.notify("*", "pl-next*", 1);
+                this.notify("*", ["pl-next*", 1]);
+            });
+            this.watch("pl-vol#", (e, d) => {
+                let stmt = "pactl set-sink-volume @DEFAULT_SINK@";
+                process.exec(`${stmt} ${d.vol}%`, err => {err && logger.error(err)});
             });
             player.on("error", err => {throw err});
         }
@@ -342,22 +347,20 @@ $_("speeker").imports({
 $_("xmlmqtt").imports({
     MQTT: {
         opt: { server: "mqtt://test.mosquitto.org" },
-        fun: async function (sys, items, opts) {
+        fun: function (sys, items, opts) {
             let table = this.children().hash();
             let client  = require("mqtt").connect(opts.server, opts);
             client.on("connect", e => {
                 for ( let key in table )
                     client.subscribe(`${opts.clientId}/${key}/in`);
-                console.log("connected to " + opts.server);
+                logger.info("connected to " + opts.server);
             });
             client.on("message", (topic, message) => {
-                console.log(topic, message);
                 let key = topic.substr(opts.clientId.length + 1);
                 key = key.substring(0, key.lastIndexOf("/in"));
                 table[key].trigger("enter", {msgin: message.toString()}, false);
             });
             this.on("publish", "./*[@id]", function (e, d) {
-                console.log(`${opts.clientId}/${this}/out`, d.msgout);
                 e.stopPropagation();
                 client.publish(`${opts.clientId}/${this}/out`, d.msgout);
             });
