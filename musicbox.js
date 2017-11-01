@@ -34,7 +34,7 @@ $_().imports({
             require("getmac").getMac((err, mac) => {
                 if (err) throw err;
                 let MAC = mac.replace(/:/g, '');
-                sys.index.append("Client", { clientId: MAC });
+                sys.index.append("Client", { uid: MAC, clientId: `${MAC}_s` });
                 logger.info(`the mac address is ${mac}`);
             });
         }
@@ -164,8 +164,9 @@ $_().imports({
         xml: "<i:MQTT id='mqtt' xmlns:i='/xmlmqtt' xmlns:c='client'>\
                 <c:Schedule id='schedule'/>\
                 <c:Control id='control'/>\
+                <c:Connected id='connected'/>\
               </i:MQTT>",
-        map: { attrs: { mqtt: "clientId" } },
+        map: { attrs: { mqtt: "uid clientId" } },
         cfg: { mqtt: { server: "mqtt://t-store.cn:3000", username: "qudouo", password: "123456" } },
         fun: function (sys, items, opts) {
             this.watch("publish", (e, topic, payload) => {
@@ -207,7 +208,15 @@ $_("client").imports({
                 set.has(d.key) && this.notify("*", [d.key, 0, d]);
             });
         }
-    }
+    },
+    Connected: {
+        fun: function (sys, items, opts) {
+            this.on("enter", (e, d) => {
+                d.msgout = '{"code": 0}';
+                this.trigger("publish", d);
+            });
+        }
+    },
 });
 
 $_("musicbox").imports({
@@ -352,17 +361,18 @@ $_("xmlmqtt").imports({
             let client  = require("mqtt").connect(opts.server, opts);
             client.on("connect", e => {
                 for ( let key in table )
-                    client.subscribe(`${opts.clientId}/${key}/in`);
+                    client.subscribe(`${opts.uid}/${key}/c`);
                 logger.info("connected to " + opts.server);
             });
             client.on("message", (topic, message) => {
-                let key = topic.substr(opts.clientId.length + 1);
-                key = key.substring(0, key.lastIndexOf("/in"));
+                console.log(topic);
+                let key = topic.substr(opts.uid.length + 1);
+                key = key.substring(0, key.lastIndexOf("/c"));
                 table[key].trigger("enter", {msgin: message.toString()}, false);
             });
             this.on("publish", "./*[@id]", function (e, d) {
                 e.stopPropagation();
-                client.publish(`${opts.clientId}/${this}/out`, d.msgout);
+                client.publish(`${opts.uid}/${this}/s`, d.msgout, {qos:1,retain: true});
             });
             return client;
         }
