@@ -143,10 +143,8 @@ $_().imports({
             this.watch("sh-reboot#", e => {
                 process.exec("reboot", err => {err && logger.error(err)});
             });
-            this.watch("rt-open", e => logger.info("player opened"));
-            this.watch("rt-stop", e => logger.info("player stopped"));
             schedule.scheduleJob('30 17 * * *', e => this.notify("rt-stop"));
-            schedule.scheduleJob('00 07 * * *', e => this.notify("rt-open").notify("*", "pl-next*"));
+            schedule.scheduleJob('00 07 * * *', e => this.notify("rt-open").notify("*", "pl-next*", 1));
             schedule.scheduleJob('0 6-23 * * *', e => this.notify("*", ["sh-time*", 1]));
         }
     },
@@ -365,7 +363,6 @@ $_("xmlmqtt").imports({
                 logger.info("connected to " + opts.server);
             });
             client.on("message", (topic, message) => {
-                console.log(topic);
                 let key = topic.substr(opts.uid.length + 1);
                 key = key.substring(0, key.lastIndexOf("/c"));
                 table[key].trigger("enter", {msgin: message.toString()}, false);
