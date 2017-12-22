@@ -23,19 +23,17 @@ $_().imports({
         xml: "<main id='index'>\
                 <Musicbox id='musicbox'/>\
                 <Router id='router'/>\
-                <Speeker id='speek'/>\
                 <Download id='download'/>\
                 <Schedule id='schedule'/>\
                 <Monitor id='monitor'/>\
+                <Client id='client'/>\
               </main>",
         fun: function (sys, items, opts) {
-            this.notify("*", "pl-next*");
-            logger.info("service is ready");
-            require("getmac").getMac((err, mac) => {
-                if (err) throw err;
-                let MAC = mac.replace(/:/g, '');
-                sys.index.append("Client", { uid: MAC, clientId: `${MAC}_s` });
-                logger.info(`the mac address is ${mac}`);
+            this.watch("service-ready", (e, message) => {
+                this.notify("*", "pl-next*");
+                for (let key in message)
+                    this.notify("*", [key, 0, message]);
+                logger.info("service is ready");
             });
         }
     },
@@ -86,25 +84,6 @@ $_().imports({
             }).notify("rt-open");
         }
     },
-    Speeker: {
-        xml: "<main xmlns:i='speeker'>\
-                 <i:BDAudio id='bdAudio'/>\
-                 <i:Player id='player'/>\
-              </main>",
-        fun: function (sys, items, opts) {
-            this.watch("speek", async (e, d) => {
-                try {
-                    let file = await items.bdAudio(d.speek);
-                    await items.player.play(file);
-                    d.buf ? (d.buf = undefined) : fs.unlinkSync(file);
-                } catch (error) {
-                    logger.error(error);
-                } finally {
-                    this.notify("next");
-                }
-            });
-        }
-    },
     Download: {
         xml: "<NetEase id='netease' xmlns='musicbox'/>",
         fun: function (sys, items, opts) {
@@ -133,88 +112,105 @@ $_().imports({
         }
     },
     Schedule: {
+        xml: "<NetEase id='netease' xmlns='musicbox'/>",
         fun: function (sys, items, opts) {
-            this.watch("sh-time*", (e, d) => {
-                let now = new Date, hours = now.getHours();
-                d.buf = true; 
-                d.speek = `北京时间${hours}点整`;
-                this.notify("exec", ["pl-pause speek pl-resume", d]);
-            });
             this.watch("sh-reboot#", e => {
                 process.exec("reboot", err => {err && logger.error(err)});
             });
-            schedule.scheduleJob('30 17 * * *', e => this.notify("rt-stop"));
-            schedule.scheduleJob('00 07 * * *', e => this.notify("rt-open").notify("*", "pl-next*", 1));
-            schedule.scheduleJob('0 6-23 * * *', e => this.notify("*", ["sh-time*", 1]));
+            this.watch("sh-stop#", e => this.notify("rt-stop"));
+            this.watch("sh-open#", e => this.notify("rt-open").notify("*", "pl-next*", 1));
+            let jobs = [];
+            this.watch("sh-schedule#", (e, d) => {
+                jobs.forEach(job => job.cancel());
+                jobs.splice(0);
+                d.schedule.forEach(item => jobs.push(make(item)));
+                this.notify("msg-change", ["schedule", d.schedule]);
+            });
+            function make(item) {
+                let p = item.pattern.split(':');
+                return schedule.scheduleJob(`${p[1]} ${p[0]} * * *`, e => {
+                    sys.netease.notify(item.action, {});
+                });
+            }
+            schedule.scheduleJob('0 8 * * *', async e => {
+                let login = await items.netease.login("", "");
+                if (login.code !== 200)
+                    logger.error(`login error! code: ${login.code}`);
+            });
         }
     },
     Monitor: {
         fun: function (sys, items, opts) {
-            (function bluetooth() {
-                process.exec(`bash ${__dirname}/bluetooth.sh`, err => {
+            let bluetooth = false;
+            function bluetooth_() {
+                bluetooth && process.exec(`bash ${__dirname}/bluetooth.sh`, err => {
                     if (err) throw err;
-                    setTimeout(bluetooth, 30 * 1000);
+                     setTimeout(bluetooth_, 30 * 1000);
                 });
-            }());
+            }
+            this.watch("mo-bluetooth#", (e, o) => {
+                if(bluetooth != o.bluetooth) {
+                    bluetooth = !!o.bluetooth;
+                    this.notify("msg-change", ["bluetooth", bluetooth]);
+                }
+            });
         }
     },
     Client: {
         xml: "<i:MQTT id='mqtt' xmlns:i='/xmlmqtt' xmlns:c='client'>\
-                <c:Schedule id='schedule'/>\
+                <c:Message id='message'/>\
                 <c:Control id='control'/>\
-                <c:Connected id='connected'/>\
               </i:MQTT>",
-        map: { attrs: { mqtt: "uid clientId" } },
-        cfg: { mqtt: { server: "mqtt://t-store.cn:3000", username: "qudouo", password: "123456" } },
-        fun: function (sys, items, opts) {
-            this.watch("publish", (e, topic, payload) => {
-                items.mqtt.publish(topic, JSON.stringify(payload));
-            });
-        }
+        cfg: { mqtt: { username: "qudouo", password: "123456" } }
     }
 });
 
 $_("client").imports({
-    Schedule: {
-        xml: "<main id='schedule'/>",
-        fun: function (sys, items, opts) {
-            let jobs = [],
-                schedule = require("node-schedule");
-            this.on("enter", (e, d) => {
-                jobs.forEach(job => job.cancel());
-                let list = JSON.parse(d.msgin);
-                jobs.splice(0);
-                list.forEach(item => jobs.push(make(item)));
-                d.msgout = '{"code": 0}';
-                this.trigger("publish", d);
+    Message: {
+        xml: "<Sqlite id='sqlite' xmlns='/sqlite'/>",
+        fun: async function (sys, items, opts) {
+            let message = await select();
+            this.watch("msg-change", (e, key, value) => {
+                update(message[key] = value);
+                this.trigger("publish", message);
             });
-            function make(item) {
-                return schedule.scheduleJob(item.time, e => {
-                    sys.schedule.notify(item.action, {});
+            function select() {
+                return new Promise(resolve => {
+                    let stmt = "SELECT * FROM options";
+                    items.sqlite.all(stmt, (err, rows) => {
+                        if (err) { throw err; }
+                        resolve(JSON.parse(rows[0].value));
+                    });
                 });
             }
+            function update() {
+                let stmt = items.sqlite.prepare("UPDATE options SET value=?");
+                stmt.run(JSON.stringify(message), err => {
+                    if (err) throw err;
+                });
+            }
+            sys.sqlite.watch("msg-change", (e, key, value) => {
+                if (key == "stat" && value == "play")
+                    sys.sqlite.unwatch().notify("*", ["pl-vol#", 0, message]);
+            });
+            this.on("enter", (e, d) => this.trigger("publish", message));
+            this.notify("service-ready", message);
         }
     },
     Control: {
         fun: function (sys, items, opts) {
             let set = new Set(
-                ["pl-toggle*", "pl-vol#", "sh-reboot#"]
+                ["pl-toggle#", "pl-vol#", "sh-schedule#", "sh-reboot#", "mo-bluetooth#"]
             );
             this.on("enter", (e, dd) => {
-                this.notify("rt-open");
                 let d = JSON.parse(dd.msgin);
-                set.has(d.key) && this.notify("*", [d.key, 0, d]);
+                this.notify("rt-open")
+                if (set.has(d.key)) {
+                    this.notify("*", [d.key, 0, d]);
+                }
             });
         }
-    },
-    Connected: {
-        fun: function (sys, items, opts) {
-            this.on("enter", (e, d) => {
-                d.msgout = '{"code": 0}';
-                this.trigger("publish", d);
-            });
-        }
-    },
+    }
 });
 
 $_("musicbox").imports({
@@ -224,34 +220,32 @@ $_("musicbox").imports({
                 mpg = require('mpg123'),
                 player = new mpg.MpgPlayer();
             this.watch("pl-pause", (e, d) => {
-                stat == "playing" ? player.pause() : this.notify("next");
+                stat == "play" ? player.pause() : this.notify("next");
             });
             player.on("pause", e => {
                 stat = "pause";
-                this.notify("next");
+                this.notify("next").notify("msg-change", ["stat", stat]);
             });
             this.watch("pl-resume", (e, d) => {
                 stat == "pause" ? player.pause() : this.notify("next");
             });
             player.on("resume", e => {
-                stat = "playing";
-                this.notify("next");
+                stat = "play";
+                this.notify("next").notify("msg-change", ["stat", stat]);
             });
-            this.watch("pl-toggle*", (e, d) => {
-                this.notify("exec", stat == "playing" ? "pl-pause" : "pl-resume");
+            this.watch("pl-toggle#", (e, d) => {
+                this.notify("exec", stat == "play" ? "pl-pause" : "pl-resume");
             });
             this.watch("pl-play", (e, d) => {
                 player.play(d.song.mp3Url);
             });
             player.on("end", e => {
                 stat = "ready";
-                this.notify("*", ["pl-next*", 1]);
-            });
-            this.watch("pl-vol#", (e, d) => {
-                let stmt = "pactl set-sink-volume @DEFAULT_SINK@";
-                process.exec(`${stmt} ${d.vol}%`, err => {err && logger.error(err)});
+                this.notify("*", ["pl-next*", 1]).notify("msg-change", ["stat", stat]);
             });
             player.on("error", err => {throw err});
+            this.watch("pl-vol#", (e, d) => player.volume(d.vol));
+            player.on("volume", vol => this.notify("msg-change", ["vol", vol]));
         }
     },
     Songlist: {
@@ -288,88 +282,26 @@ $_("musicbox").imports({
     }
 });
 
-$_("speeker").imports({
-    Player: {
-        fun: function (sys, items, opts) {
-            let mpg = require('mpg123'),
-                player = new mpg.MpgPlayer();
-            function play(file) {
-                return new Promise(resolve => {
-                    player.play(file);
-                    player.once("end", e => resolve(true));
-                });
-            }
-            player.on("error", err => {throw err});
-            return { play: play };
-        }
-    },
-    BDAudio: {
-        xml: "<AccessToken id='access_token'/>",
-        fun: function (sys, items, opts) {
-            let fs = require("fs"),
-                md5 = require('md5'),
-                qs = require('querystring'),
-                request = require('request'),
-                schedule = require('node-schedule'),
-                host = 'http://tsn.baidu.com/text2audio?',
-                params = { 'lan':'zh', 'tok': "", 'ctp':1, 'cuid':'E8-4E-06-33-48-5E', 'spd':4, 'pit':5, 'vol':10, 'per':0 };
-            schedule.scheduleJob('0 7 * * *', async () => params.tok = await items.access_token());
-            return async (text, speed) => {
-                let resolve, reject,
-                    tex = encodeURIComponent(text);
-                params.tok || (params.tok = await items.access_token());
-                let url = host + qs.stringify(xp.extend({}, params, {tex: tex, spd: speed || 4}));
-                let filePath = __dirname + "/tmp/" + md5(tex);
-                try {
-                    fs.accessSync(filePath,  fs.F_OK|fs.R_OK);
-                    return resolve(filePath);
-                } catch (err) {}
-                download = fs.createWriteStream(filePath);
-                download.once('error', e => reject(e));
-                download.once('finish', e => resolve(filePath));
-                request(url).pipe(download);
-                return new Promise((res, rej) => {resolve = res; reject = rej});
-            };
-        }
-    },
-    AccessToken: {
-        opt: { grant_type: "client_credentials", client_id: "X9SuOWy7uEv6vX2IHS75edOg", client_secret: "7e6ab9189c189c5e9a0dd0ce1ed3b5cc" },
-        fun: function (sys, items, opts) {
-            let qs = require('querystring'),
-                request = require('request'),
-                tok_url = "https://openapi.baidu.com/oauth/2.0/token?" + qs.stringify(opts);
-            return function () {
-                let resolve, reject;
-                request(tok_url, (err, res, body) => {
-                    if (err) return reject(err);
-                    let result = JSON.parse(body);
-                    result.error ? reject(result.error) : resolve(result.access_token);
-                });
-                return new Promise((res, rej) => {resolve = res; reject = rej});
-            }
-        }
-    }
-});
-
 $_("xmlmqtt").imports({
     MQTT: {
-        opt: { server: "mqtt://test.mosquitto.org" },
+        opt: { server: "mqtt://t-store.cn:3000", clientId: "10001" },
         fun: function (sys, items, opts) {
             let table = this.children().hash();
             let client  = require("mqtt").connect(opts.server, opts);
             client.on("connect", e => {
-                for ( let key in table )
-                    client.subscribe(`${opts.uid}/${key}/c`);
+                client.subscribe(opts.clientId);
+                console.log("connected to " + opts.server);
                 logger.info("connected to " + opts.server);
             });
-            client.on("message", (topic, message) => {
-                let key = topic.substr(opts.uid.length + 1);
-                key = key.substring(0, key.lastIndexOf("/c"));
-                table[key].trigger("enter", {msgin: message.toString()}, false);
+            client.on("message", (topic, msg) => {
+                msg = JSON.parse(msg);
+                if (table[msg.topic])
+                    table[msg.topic].trigger("enter", {msgin: JSON.stringify(msg.data)}, false);
             });
-            this.on("publish", "./*[@id]", function (e, d) {
+            this.on("publish", "./*[@id]", function (e, data) {
                 e.stopPropagation();
-                client.publish(`${opts.uid}/${this}/s`, d.msgout, {qos:1,retain: true});
+                let msgout = { topic: this.toString(), ssid: opts.clientId, data: data };
+                client.publish("00000", JSON.stringify(msgout), {qos:1,retain: true});
             });
             return client;
         }
@@ -395,6 +327,29 @@ $_("xmlmqtt").imports({
                     throw new Error("invalid next: " + next);
                 }
             });
+        }
+    }
+});
+
+$_("sqlite").imports({
+    Sqlite: {
+        fun: function (sys, items, opts) {
+            let sqlite = require("sqlite3").verbose(),
+                db = new sqlite.Database(`${__dirname}/data.db`);
+			db.exec("VACUUM");
+            db.exec("PRAGMA foreign_keys = ON");
+            return db;
+        }
+    },
+    Prepare: {
+        fun: function (sys, items, opts) {
+            return stmt => {
+                var args = [].slice.call(arguments).slice(1);
+                args.forEach(item => {
+                    stmt = stmt.replace("?", typeof item == "string" ? '"' + item + '"' : item);
+                });
+                return stmt;
+            };
         }
     }
 });
