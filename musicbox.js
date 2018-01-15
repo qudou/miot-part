@@ -16,6 +16,9 @@ log4js.configure({
 });
 const logger = log4js.getLogger('musicbox');
 
+const LinkId = "aee81434-fe5f-451a-b522-ae3631da5f44";
+const PartId = "27b58bc7-b48b-4afe-a14f-192cca1b9f0b";
+
 xmlplus("musicbox", (xp, $_, t) => {
 
 $_().imports({
@@ -283,7 +286,7 @@ $_("musicbox").imports({
 
 $_("xmlmqtt").imports({
     MQTT: {
-        opt: { server: "mqtt://t-store.cn:3001", clientId: "aee81434-fe5f-451a-b522-ae3631da5f44", partId: "27b58bc7-b48b-4afe-a14f-192cca1b9f0b" },
+        opt: { server: "mqtt://t-store.cn:3001", clientId: LinkId, partId: PartId },
         fun: function (sys, items, opts) {
             let table = this.children().hash();
             let client  = require("mqtt").connect(opts.server, opts);

@@ -1,6 +1,6 @@
 # musicbox
 
-基于树莓派的网易云音乐播放器。
+基于树莓派的网易云音乐播放器。该播放器专为物联平台 [miot](https://github.com/qudou/miot) 设计，client 目录包含的是客户端文件。
 
 
 ## 播放器配置
