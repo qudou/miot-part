@@ -11,7 +11,7 @@ const process = require('child_process');
 const schedule = require("node-schedule");
 const log4js = require('log4js');
 log4js.configure({
-    appenders: { musicbox: { type: 'file', filename: `${__dirname}/tmp/musicbox.log` } },
+    appenders: { musicbox: { type: 'file', filename: `${__dirname}/musicbox.log` } },
     categories: { default: { appenders: ['musicbox'], level: 'debug' } }
 });
 const logger = log4js.getLogger('musicbox');
@@ -87,7 +87,7 @@ $_().imports({
     Download: {
         xml: "<NetEase id='netease' xmlns='musicbox'/>",
         fun: function (sys, items, opts) {
-            let path = `${__dirname}/tmp/buffer`;
+            let path = `${__dirname}/buffer`;
             function isExist(files, song) {
                 let file = song.mp3Url.split('/').pop();
                 return files.indexOf(file) != -1;
@@ -95,15 +95,15 @@ $_().imports({
             async function download() {
                 let files = fs.readdirSync(path);
                 let songs = await items.netease.personal_fm() || [];
-                for ( var song of songs ) {
+                for (let song of songs) {
                     song.mp3Url = (await items.netease.songs_detail_new_api(song.id)).url;
-                    if ( !isExist(files, song) ) break;
+                    if (!isExist(files, song)) break;
                 }
-                if ( files.length > 256 ) {
+                if (files.length > 256) {
                     let i = Math.floor(Math.random() * files.length);
                     fs.unlink(`${path}/${files[i]}`, err => {err && logger.info(err)});
                 }
-                if ( song && !isExist(files, song)) {
+                if (song && !isExist(files, song)) {
                     process.exec(`aria2c ${song.mp3Url} -d ${path}`, err => {err && logger.error(err)});
                 }
                 setTimeout(download, files.length < 256 ? 15 * 60 * 1000 : 3600 * 1000);
@@ -133,7 +133,7 @@ $_().imports({
                 });
             }
             schedule.scheduleJob('0 8 * * *', async e => {
-                let login = await items.netease.login("", "");
+                let login = await items.netease.login("13977097500", "139500i");
                 if (login.code !== 200)
                     logger.error(`login error! code: ${login.code}`);
             });
@@ -160,8 +160,7 @@ $_().imports({
         xml: "<i:MQTT id='mqtt' xmlns:i='/xmlmqtt' xmlns:c='client'>\
                 <c:Message id='message'/>\
                 <c:Control id='control'/>\
-              </i:MQTT>",
-        cfg: { mqtt: { username: "qudouo", password: "123456" } }
+              </i:MQTT>"
     }
 });
 
@@ -250,7 +249,7 @@ $_("musicbox").imports({
     },
     Songlist: {
         fun: function (sys, items, opts) {
-            let path = `${__dirname}/tmp/buffer`;
+            let path = `${__dirname}/buffer`;
             function next() {
                 let files = fs.readdirSync(path),
                     i = Math.floor(Math.random()*files.length);
@@ -284,12 +283,12 @@ $_("musicbox").imports({
 
 $_("xmlmqtt").imports({
     MQTT: {
-        opt: { server: "mqtt://t-store.cn:3000", clientId: "10001" },
+        opt: { server: "mqtt://t-store.cn:3001", clientId: "aee81434-fe5f-451a-b522-ae3631da5f44", partId: "27b58bc7-b48b-4afe-a14f-192cca1b9f0b" },
         fun: function (sys, items, opts) {
             let table = this.children().hash();
             let client  = require("mqtt").connect(opts.server, opts);
             client.on("connect", e => {
-                client.subscribe(opts.clientId);
+                client.subscribe(opts.partId);
                 console.log("connected to " + opts.server);
                 logger.info("connected to " + opts.server);
             });
@@ -300,7 +299,7 @@ $_("xmlmqtt").imports({
             });
             this.on("publish", "./*[@id]", function (e, data) {
                 e.stopPropagation();
-                let msgout = { topic: this.toString(), ssid: opts.clientId, data: data };
+                let msgout = { topic: this.toString(), ssid: opts.partId, data: data };
                 client.publish("00000", JSON.stringify(msgout), {qos:1,retain: true});
             });
             return client;
