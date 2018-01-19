@@ -16,6 +16,9 @@ log4js.configure({
 });
 const logger = log4js.getLogger('musicbox');
 
+const ListLength = 300;
+const TimeInterval = 20 * 1000;
+const BufferDir = `${__dirname}/buffer`;
 const Server = "mqtt://t-store.cn:1883";
 const LinkId = "aee81434-fe5f-451a-b522-ae3631da5f44";
 const PartId = "27b58bc7-b48b-4afe-a14f-192cca1b9f0b";
@@ -27,11 +30,10 @@ $_().imports({
         xml: "<main id='index'>\
                 <Musicbox id='musicbox'/>\
                 <Router id='router'/>\
-                <Download id='download'/>\
                 <Schedule id='schedule'/>\
-                <Monitor id='monitor'/>\
                 <Client id='client'/>\
               </main>",
+        map: { share: "/schedule/Sqlite sqlite/Sqlite" },
         fun: function (sys, items, opts) {
             this.watch("service-ready", (e, message) => {
                 this.notify("*", "pl-next*");
@@ -48,8 +50,8 @@ $_().imports({
               </main>",
         fun: function (sys, items, opts) {
             let list = items.songlist;
-            this.watch("pl-next*", (e, d) => {
-                d.song = list.next();
+            this.watch("pl-next*", async (e, d) => {
+                d.song = await list.next();
                 this.notify("exec", ["pl-pause pl-play", d]);
             });
         }
@@ -64,13 +66,11 @@ $_().imports({
                 cmds = c.split(' ');
                 sys.router.notify(cmds.shift(), [data = d]);
             }
-            this.watch("rt-stop", e => this.unwatch("exec"));
             this.watch("next", (e, str) => {
                 str && rebuild(str);
                 let cmd = cmds.shift();
                 cmd ? this.notify(cmd, [data]) : unlock();
             });
-            this.watch("rt-open", e => this.unwatch("exec").watch("exec", exec));
             function rebuild(str) {
                 let c = str.charAt(0), s = str.substr(1);
                 c == "-" ? s.split(' ').forEach(item => {
@@ -85,44 +85,20 @@ $_().imports({
                 if (key.split('').pop() == '#')
                     return this.notify(key, d);
                 locked ? (save && jobs.push(key)) : this.notify(key, d);
-            }).notify("rt-open");
-        }
-    },
-    Download: {
-        xml: "<NetEase id='netease' xmlns='musicbox'/>",
-        fun: function (sys, items, opts) {
-            let path = `${__dirname}/buffer`;
-            function isExist(files, song) {
-                let file = song.mp3Url.split('/').pop();
-                return files.indexOf(file) != -1;
-            }
-            async function download() {
-                let files = fs.readdirSync(path);
-                let songs = await items.netease.personal_fm() || [];
-                for (let song of songs) {
-                    song.mp3Url = (await items.netease.songs_detail_new_api(song.id)).url;
-                    if (!isExist(files, song)) break;
-                }
-                if (files.length > 256) {
-                    let i = Math.floor(Math.random() * files.length);
-                    fs.unlink(`${path}/${files[i]}`, err => {err && logger.info(err)});
-                }
-                if (song && !isExist(files, song)) {
-                    process.exec(`aria2c ${song.mp3Url} -d ${path}`, err => {err && logger.error(err)});
-                }
-                setTimeout(download, files.length < 256 ? 15 * 60 * 1000 : 3600 * 1000);
-            }
-            setTimeout(download, 15 * 60 * 1000);
+            }).watch("exec", exec);
         }
     },
     Schedule: {
-        xml: "<NetEase id='netease' xmlns='musicbox'/>",
+        xml: "<main id='schedule' xmlns:i='schedule'>\
+                <i:Download id='download'/>\
+                <i:Unlink id='unlink'/>\
+                <i:Bluetooth id='bluetooth'/>\
+                <NetEase id='netease' xmlns='musicbox'/>\
+              </main>",
         fun: function (sys, items, opts) {
             this.watch("sh-reboot#", e => {
                 process.exec("reboot", err => {err && logger.error(err)});
             });
-            this.watch("sh-stop#", e => this.notify("rt-stop"));
-            this.watch("sh-open#", e => this.notify("rt-open").notify("*", "pl-next*", 1));
             let jobs = [];
             this.watch("sh-schedule#", (e, d) => {
                 jobs.forEach(job => job.cancel());
@@ -136,6 +112,18 @@ $_().imports({
                     sys.netease.notify(item.action, {});
                 });
             }
+            let wait, stat = "ready";
+            this.watch("msg-change", (e, key, value) => {
+                if (key != "stat") return;
+                stat = value;
+                stat == wait && this.notify("pl-toggle#");
+            });
+            this.watch("sh-stop#", e => {
+                wait = stat == "play" ? (this.notify("pl-toggle#"), null) : "play";
+            });
+            this.watch("sh-open#", e => {
+                wait = stat == "pause" ? (this.notify("pl-toggle#"), null) : "pause";
+            });
             schedule.scheduleJob('0 8 * * *', async e => {
                 let login = await items.netease.login("13977097500", "139500i");
                 if (login.code !== 200)
@@ -143,7 +131,128 @@ $_().imports({
             });
         }
     },
-    Monitor: {
+    Client: {
+        xml: "<i:MQTT id='mqtt' xmlns:i='/xmlmqtt' xmlns:c='client'>\
+                <c:Message id='message'/>\
+                <c:Control id='control'/>\
+              </i:MQTT>"
+    }
+});
+
+$_("musicbox").imports({
+    Player: {
+        fun: function (sys, items, opts) {
+            let stat = "ready",
+                mpg = require('mpg123'),
+                player = new mpg.MpgPlayer();
+            this.watch("pl-pause", (e, d) => {
+                stat == "play" ? player.pause() : this.notify("next");
+            });
+            player.on("pause", e => {
+                stat = "pause";
+                this.notify("next").notify("msg-change", ["stat", stat]);
+            });
+            this.watch("pl-resume", (e, d) => {
+                stat == "pause" ? player.pause() : this.notify("next");
+            });
+            player.on("resume", e => {
+                stat = "play";
+                this.notify("next").notify("msg-change", ["stat", stat]);
+            });
+            this.watch("pl-toggle#", (e, d) => {
+                this.notify("exec", stat == "play" ? "pl-pause" : "pl-resume");
+            });
+            this.watch("pl-play", (e, d) => {
+                player.play(`${BufferDir}/${d.song.mp3Url}`);
+            });
+            player.on("end", e => {
+                stat = "ready";
+                this.notify("*", ["pl-next*", 1]).notify("msg-change", ["stat", stat]);
+            });
+            player.on("error", err => {throw err});
+            this.watch("pl-vol#", (e, d) => player.volume(d.vol));
+            player.on("volume", vol => this.notify("msg-change", ["vol", vol]));
+        }
+    },
+    Songlist: {
+        xml: "<Sqlite id='sqlite' xmlns='/schedule'/>",
+        fun: function (sys, items, opts) {
+            let tmp = { id: undefined };
+            async function next() {
+                let last = await items.sqlite.last();
+                let song = await items.sqlite.random();
+                return song.id == tmp.id || last && song.id == last.id ? next() : (tmp = song);
+            }
+            return { next: next };
+        }
+    },
+    NetEase: {
+        fun: function (sys, items, opts) {
+            let resolve, reject, result = {},
+                PythonShell = require('python-shell'),
+                funList = ["login", "personal_fm", "top_songlist", "songs_detail_new_api", "get_version", "daily_signin", "recommend_playlist", "user_playlist", "playlist_detail", "songs_detail", "channel_detail"];
+            function request(...values) {
+                let pyshell = new PythonShell("playlist.py", {scriptPath: __dirname});
+                pyshell.send(JSON.stringify(values));
+                pyshell.once('message', message => {
+                    let msg = JSON.parse(message);
+                    resolve(msg == -1 ? null : msg);
+                });
+                pyshell.end((err) => {if (err) throw err});
+                return new Promise((resolve_, reject_) => {resolve = resolve_; reject = reject_;});
+            }
+            funList.forEach(key => {
+                result[key] = async (...values) => {return await request.apply(null, [key].concat(values))};
+            });
+            return result;
+        }
+    }
+});
+
+$_("schedule").imports({
+    Download: {
+        xml: "<main id='download'>\
+                <Sqlite id='sqlite'/>\
+                <NetEase id='netease' xmlns='../musicbox'/>\
+              </main>",
+        fun: function (sys, items, opts) {
+            let request = require("request");
+            async function download() {
+                let song, songs = await items.netease.personal_fm() || [];
+                for (song of songs) {
+                    if (await items.sqlite.exist(song.id)) continue;
+                    song.mp3Url = (await items.netease.songs_detail_new_api(song.id)).url;
+                    break;
+                }
+                if (!song || !song.mp3Url) return;
+                let filename = song.mp3Url.split('/').pop();
+                let filePath = `${BufferDir}/${filename}`;
+                let download = fs.createWriteStream(filePath);
+                download.once('error', e => logger.error(e));
+                download.once('finish', async e => {
+                    await items.sqlite.insert(song.id, song.name, filename);
+                });
+                request(song.mp3Url).pipe(download);
+            }
+            setInterval(async e => {
+                await items.sqlite.length() < ListLength && download();
+            }, TimeInterval);
+        }
+    },
+    Unlink: {
+        xml: "<Sqlite id='sqlite'/>",
+        fun: function (sys, items, opts) {
+            async function unlink() {
+                let song = await items.sqlite.last();
+                if (song == null) return;
+                await items.sqlite.unlink(song);
+            }
+            setInterval(async e => {
+                await items.sqlite.length() >= ListLength && unlink();
+            }, TimeInterval);
+        }
+    },
+    Bluetooth: {
         fun: function (sys, items, opts) {
             let bluetooth = false;
             function bluetooth_() {
@@ -160,11 +269,68 @@ $_().imports({
             });
         }
     },
-    Client: {
-        xml: "<i:MQTT id='mqtt' xmlns:i='/xmlmqtt' xmlns:c='client'>\
-                <c:Message id='message'/>\
-                <c:Control id='control'/>\
-              </i:MQTT>"
+    Sqlite: {
+        xml: "<Sqlite id='sqlite' xmlns='/sqlite'/>",
+        fun: function (sys, items, opts) {
+            function exist(songId) {
+                return new Promise((resolve, reject) => {
+                    let stmt = `SELECT count(*) AS count FROM songs WHERE id=${songId}`;
+                    items.sqlite.all(stmt, (err, data) => {
+                        if (err) throw err;
+                        resolve(data[0].count);
+                    });
+                });
+            }
+            function length() {
+                return new Promise((resolve, reject) => {
+                    let stmt = `SELECT count(*) AS count FROM songs`;
+                    items.sqlite.all(stmt, (err, data) => {
+                        if (err) throw err;
+                        resolve(data[0].count);
+                    });
+                });
+            }
+            function insert(id, name, mp3Url) {
+                return new Promise((resolve, reject) => {
+                    let stmt = items.sqlite.prepare("INSERT INTO songs(id,name,mp3Url) VALUES(?,?,?)");
+                    stmt.run(id, name, mp3Url, (err) => {
+                        if (err) throw err;
+                        resolve(true);
+                    });
+                });
+            }
+            function unlink(song) {
+                return new Promise((resolve, reject) => {
+                    let stmt = items.sqlite.prepare(`DELETE FROM songs WHERE id = ${song.id}`);
+                    stmt.run(err => {
+                        if (err) throw err;
+                        else fs.unlink(`${BufferDir}/${song.mp3Url}`, err => {
+                            if (err) throw err;
+                            resolve(true);
+                        });
+                    });
+                });
+            }
+            function last() {
+                return new Promise((resolve, reject) => {
+                    let stmt = `SELECT * FROM songs ORDER BY createtime LIMIT 1`;
+                    items.sqlite.all(stmt, (err, data) => {
+                        if (err) throw err;
+                        resolve(data[0]);
+                    });
+                });
+            }
+            function random() {
+                return new Promise((resolve, reject) => {
+                    let stmt = `SELECT * FROM songs ORDER BY RANDOM() LIMIT 1`;
+                    items.sqlite.all(stmt, (err, data) => {
+                        if (err) throw err;
+                        resolve(data[0]);
+                    });
+                });
+            }
+            return { exist: exist, length: length, insert: insert, unlink: unlink, last: last, random: random };
+        }
     }
 });
 
@@ -212,75 +378,6 @@ $_("client").imports({
                     this.notify("*", [d.key, 0, d]);
                 }
             });
-        }
-    }
-});
-
-$_("musicbox").imports({
-    Player: {
-        fun: function (sys, items, opts) {
-            let stat = "ready",
-                mpg = require('mpg123'),
-                player = new mpg.MpgPlayer();
-            this.watch("pl-pause", (e, d) => {
-                stat == "play" ? player.pause() : this.notify("next");
-            });
-            player.on("pause", e => {
-                stat = "pause";
-                this.notify("next").notify("msg-change", ["stat", stat]);
-            });
-            this.watch("pl-resume", (e, d) => {
-                stat == "pause" ? player.pause() : this.notify("next");
-            });
-            player.on("resume", e => {
-                stat = "play";
-                this.notify("next").notify("msg-change", ["stat", stat]);
-            });
-            this.watch("pl-toggle#", (e, d) => {
-                this.notify("exec", stat == "play" ? "pl-pause" : "pl-resume");
-            });
-            this.watch("pl-play", (e, d) => {
-                player.play(d.song.mp3Url);
-            });
-            player.on("end", e => {
-                stat = "ready";
-                this.notify("*", ["pl-next*", 1]).notify("msg-change", ["stat", stat]);
-            });
-            player.on("error", err => {throw err});
-            this.watch("pl-vol#", (e, d) => player.volume(d.vol));
-            player.on("volume", vol => this.notify("msg-change", ["vol", vol]));
-        }
-    },
-    Songlist: {
-        fun: function (sys, items, opts) {
-            let path = `${__dirname}/buffer`;
-            function next() {
-                let files = fs.readdirSync(path),
-                    i = Math.floor(Math.random()*files.length);
-                return files[i].split('.').pop() == "mp3" ? { mp3Url: `${path}/${files[i]}` } : next();
-            }
-            return { next: next };
-        }
-    },
-    NetEase: {
-        fun: function (sys, items, opts) {
-            let resolve, reject, result = {},
-                PythonShell = require('python-shell'),
-                funList = ["login", "personal_fm", "top_songlist", "songs_detail_new_api", "get_version", "daily_signin", "recommend_playlist", "user_playlist", "playlist_detail", "songs_detail", "channel_detail"];
-            function request(...values) {
-                let pyshell = new PythonShell("playlist.py", {scriptPath: __dirname});
-                pyshell.send(JSON.stringify(values));
-                pyshell.once('message', message => {
-                    let msg = JSON.parse(message);
-                    resolve(msg == -1 ? null : msg);
-                });
-                pyshell.end((err) => {if (err) throw err});
-                return new Promise((resolve_, reject_) => {resolve = resolve_; reject = reject_;});
-            }
-            funList.forEach(key => {
-                result[key] = async (...values) => {return await request.apply(null, [key].concat(values))};
-            });
-            return result;
         }
     }
 });

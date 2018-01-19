@@ -1,8 +1,4 @@
-{
-const PATH = document.getElementsByTagName('script')[0].src.split('/');
-const ClassID = PATH[PATH.length - 2];
-
-xmlplus(ClassID, (xp, $_, t) => {
+xmlplus("10001", (xp, $_, t) => {
 
 $_().imports({
     Icon: {
@@ -17,5 +13,4 @@ $_().imports({
 
 if ( typeof define === "function" ) {
     define( "xmlplus", [], function () { return xmlplus; } );
-}
 }
