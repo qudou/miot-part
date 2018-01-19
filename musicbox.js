@@ -17,7 +17,7 @@ log4js.configure({
 const logger = log4js.getLogger('musicbox');
 
 const ListLength = 300;
-const TimeInterval = 20 * 1000;
+const TimeInterval = 3600 * 1000;
 const BufferDir = `${__dirname}/buffer`;
 const Server = "mqtt://t-store.cn:1883";
 const LinkId = "aee81434-fe5f-451a-b522-ae3631da5f44";
@@ -125,7 +125,7 @@ $_().imports({
                 wait = stat == "pause" ? (this.notify("pl-toggle#"), null) : "pause";
             });
             schedule.scheduleJob('0 8 * * *', async e => {
-                let login = await items.netease.login("13977097500", "139500i");
+                let login = await items.netease.login("13988888888", "139500i");
                 if (login.code !== 200)
                     logger.error(`login error! code: ${login.code}`);
             });
