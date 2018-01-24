@@ -14,7 +14,7 @@ const logger = log4js.getLogger("musicbox");
 
 const ListLength = 300;
 const TimeInterval = 3600 * 1000;
-const BufferDir = `${__dirname}/buffer`;
+const Root = `${__dirname}/player`;
 const [Username, Password] = ["17095989603", "139500i"];
 
 xmlplus("player", (xp, $_) => {
@@ -139,7 +139,7 @@ $_("musicbox").imports({
                     this.notify("*", stat == "play" ? "pl-pause" : "pl-resume");
             });
             this.watch("pl-play", (e, d) => {
-                player.play(`${BufferDir}/${d.song.mp3Url}`);
+                player.play(`${Root}/buffer/${d.song.mp3Url}`);
                 this.notify("msg-change", ["song", d.song]);
             });
             player.on("end", e => {
@@ -170,7 +170,7 @@ $_("musicbox").imports({
                 funList = ["login", "personal_fm", "top_songlist", "songs_detail_new_api", "get_version", "daily_signin", "recommend_playlist", "user_playlist", "playlist_detail", "songs_detail", "channel_detail"];
             function request(...values) {
                 return new Promise((resolve, reject) => {
-                    let pyshell = new PythonShell("playlist.py", {scriptPath: __dirname});
+                    let pyshell = new PythonShell("playlist.py", {scriptPath: Root});
                     pyshell.send(JSON.stringify(values));
                     pyshell.once('message', message => {
                         let msg = JSON.parse(message);
@@ -232,7 +232,7 @@ $_("schedule").imports({
                 }
                 if (!song || !song.mp3Url) return;
                 let filename = song.mp3Url.split('/').pop();
-                let filePath = `${BufferDir}/${filename}`;
+                let filePath = `${Root}/buffer/${filename}`;
                 let download = fs.createWriteStream(filePath);
                 download.once('error', e => logger.error(e));
                 download.once('finish', async e => {
@@ -256,7 +256,7 @@ $_("schedule").imports({
         fun: function (sys, items, opts) {
             let timer, bluetooth;
             function bluetooth_() {
-                process.exec(`bash ${__dirname}/bluetooth.sh`, err => {
+                process.exec(`bash ${Root}/bluetooth.sh`, err => {
                     if (err) logger.error(err);
                     else timer = setTimeout(bluetooth_, 30 * 1000);
                 });
@@ -305,7 +305,7 @@ $_("schedule").imports({
                     let stmt = items.sqlite.prepare(`DELETE FROM songs WHERE id = ${song.id}`);
                     stmt.run(err => {
                         if (err) throw err;
-                        else fs.unlink(`${BufferDir}/${song.mp3Url}`, err => {
+                        else fs.unlink(`${Root}/buffer/${song.mp3Url}`, err => {
                             if (err) throw err;
                             resolve(true);
                         });
@@ -384,7 +384,7 @@ $_("sqlite").imports({
     Sqlite: {
         fun: function (sys, items, opts) {
             let sqlite = require("sqlite3").verbose(),
-                db = new sqlite.Database(`${__dirname}/data.db`);
+                db = new sqlite.Database(`${Root}/data.db`);
 			db.exec("VACUUM");
             db.exec("PRAGMA foreign_keys = ON");
             return db;

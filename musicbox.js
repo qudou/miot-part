@@ -5,12 +5,12 @@
  * Released under the MIT license
  */
 
-require("./player.js");
+require("./servers/player.js");
+require("./servers/status.js");
 
 const xmlplus = require("xmlplus");
 const Server = "mqtt://t-store.cn:1883";
 const LinkId = "aee81434-fe5f-451a-b522-ae3631da5f44";
-const PartId = "27b58bc7-b48b-4afe-a14f-192cca1b9f0b";
 
 const log4js = require('log4js');
 log4js.configure({
@@ -24,7 +24,8 @@ xmlplus("musicbox", (xp, $_, t) => {
 $_().imports({
     Index: {
         xml: `<MQTT id='mqtt' server='${Server}' clientId='${LinkId}'>
-                <Client id='${PartId}' xmlns='//player'/>
+                <Client id='27b58bc7-b48b-4afe-a14f-192cca1b9f0b' desc='player' xmlns='//player'/>
+                <Client id='1f84a3a3-79c5-48c6-a676-e497950660d7' desc='status' xmlns='//status'/>
               </MQTT>`,
         fun: function (sys, items, opts) {
             this.on("connected", (e, msg) => logger.info(msg));
