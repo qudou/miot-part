@@ -1,7 +1,11 @@
-const PATH = document.getElementsByTagName('script')[0].src.split('/');
-const ClassID = PATH[PATH.length - 2];
+/*!
+ * musicbox.js v1.0.0
+ * https://github.com/qudou/musicbox
+ * (c) 2009-2017 qudou
+ * Released under the MIT license
+ */
 
-xmlplus(ClassID, (xp, $_, t) => {
+xmlplus("10001", (xp, $_, t) => {
 
 $_().imports({
     Client: {
@@ -18,32 +22,21 @@ $_().imports({
         }
     },
     Body: {
-        css: "#toggle { margin: 20px auto; }",
+        css: "#player { margin: 20px auto; }",
         xml: "<div id='body'>\
-                <Toggle id='toggle'/>\
+                <Player id='player'/>\
                 <From id='from'/>\
               </div>",
         fun: function (sys, items, opts) {
             this.trigger("publish", ["message"]);
         }
     },
-    Toggle: {
-        css: "#toggle, #toggle > * { width: 64px; height: 64px; }",
-        xml: "<ViewStack id='toggle'>\
-                <Icon id='play'/>\
-                <Icon id='pause'/>\
-                <Icon id='ready'/>\
-              </ViewStack>",
-        fun: function (sys, items, opts) {
-            let table = { play: "pause", pause: "play", ready: "ready" };
-            sys.toggle.on("touchend", "Icon", function () {
-                sys.toggle.trigger("switch", table[this]);
-                sys.toggle.trigger("publish", ["control", {key: "pl-toggle#"}]);
-            });
-            this.watch("message", (e, data) => {
-                sys.toggle.trigger("switch", table[data.stat]);
-            });
-        }
+    Player: {
+        css: "#toggle { margin: 10px auto; }",
+        xml: "<div id='player' xmlns:i='player'>\
+                <i:Title id='title'/>\
+                <i:Toggle id='toggle'/>\
+              </div>"
     },
     From: {
         css: ".form-horizontal div#vol { margin-left: 0; margin-right: 0; }",
@@ -99,6 +92,38 @@ $_().imports({
         }
     }
 });
+
+$_("player").imports({
+    Title: {
+        css: "#text { text-align: center; color: #01C5AD; font-size: 14px;}", 
+        xml: "<div id='title'>\
+                <div id='text'>title</div>\
+              </div>",
+        fun: function (sys, items, opts) {
+            this.watch("message", (e, data) => {
+                data.song && sys.text.text(data.song.name);
+            });
+        }
+    },
+    Toggle: {
+        css: "#toggle, #toggle > * { width: 64px; height: 64px; }",
+        xml: "<i:ViewStack id='toggle' xmlns:i='..'>\
+                <i:Icon id='play'/>\
+                <i:Icon id='pause'/>\
+                <i:Icon id='ready'/>\
+              </i:ViewStack>",
+        fun: function (sys, items, opts) {
+            let table = { play: "pause", pause: "play", ready: "ready" };
+            sys.toggle.on("touchend", "./*[@id]", function () {
+                sys.toggle.trigger("switch", table[this]);
+                sys.toggle.trigger("publish", ["control", {key: "pl-toggle#"}]);
+            });
+            this.watch("message", (e, data) => {
+                sys.toggle.trigger("switch", table[data.stat]);
+            });
+        }
+    }
+});    
 
 $_("form").imports({ 
     Range: {
