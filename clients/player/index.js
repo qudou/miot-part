@@ -10,9 +10,6 @@ xmlplus("10001", (xp, $_, t) => {
 $_().imports({
     Client: {
         xml: "<i:Loader id='client' xmlns:i='loader'>\
-                <i:Link url='/parts/10001/framework7.ios.min.css'/>\
-                <i:Link url='/parts/10001/framework7.ios.colors.min.css'/>\
-                <i:Script url='/parts/10001/framework7.min.js'/>\
                 <i:Header id='header'/>\
                 <i:Defer id='defer' target='/Body'/>\
               </i:Loader>",
