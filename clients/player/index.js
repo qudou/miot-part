@@ -9,13 +9,28 @@ xmlplus("10001", (xp, $_, t) => {
 
 $_().imports({
     Client: {
-        xml: "<i:Loader id='client' xmlns:i='loader'>\
-                <i:Header id='header'/>\
-                <i:Defer id='defer' target='/Body'/>\
-              </i:Loader>",
+        css: "#client { padding: 0 16px 16px; background: #FFF; }",
+        xml: "<div id='client'>\
+                <Header id='header'/>\
+                <Body id='body'/>\
+              </div>",
         fun: function (sys, items, opts) {
             items.header.title(opts.name);
+            this.trigger("publish", ["message"]);
             this.once("willRemoved", e => this.notify("willRemoved"));
+        }
+    },
+    Header: {
+        css: "#header { position: relative; margin: 0; height: 44px; line-height: 44px; text-align: center; box-sizing: border-box; }\
+              #header:after { content: ''; position: absolute; left: 0; bottom: 0; right: auto; top: auto; height: 1px; width: 100%; background-color: #c4c4c4; display: block; z-index: 15; -webkit-transform-origin: 50% 100%; transform-origin: 50% 100%; }\
+              #close { position: absolute; left: 0; top: 0; margin-top: 8px; } #title { font-size: 18px; font-weight: bold; display: inline; }",
+        xml: "<header id='header'>\
+                <Icon id='close' xmlns='/'/>\
+                <h1 id='title'/>\
+              </header>",
+        fun: function (sys, items, opts) {
+            sys.close.on("touchend", e => this.trigger("close"));
+            return { title: sys.title.text };
         }
     },
     Body: {
@@ -23,10 +38,7 @@ $_().imports({
         xml: "<div id='body'>\
                 <Player id='player'/>\
                 <From id='from'/>\
-              </div>",
-        fun: function (sys, items, opts) {
-            this.trigger("publish", ["message"]);
-        }
+              </div>"
     },
     Player: {
         css: "#toggle { margin: 10px auto; }",
@@ -150,23 +162,23 @@ $_("form").imports({
         }
     },
     TimePicker: {
-        css: ".picker-columns { z-index: 100000; }",
+        css: ".sheet-modal { z-index: 100000; }",
         xml: "<div class='form-group'>\
                 <label id='label' class='col-sm-2 control-label'/>\
-                <div class='col-sm-10'>\
+                <div id='view' class='col-sm-10'>\
                    <input id='input' readonly='true' class='form-control'/>\
                 </div>\
               </div>",
         fun: function (sys, items, opts) {
-            let myApp = new Framework7();
             let today = new Date();
-            let picker = myApp.picker({
-                input: sys.input.elem(),
+            let app = new Framework7();
+            let picker = app.picker.create({
+                inputEl: sys.input.elem(),
                 rotateEffect: true,
                 toolbarCloseText: "确定",
                 value: [today.getHours(), today.getMinutes()],
                 cols: [{values: hours()},{divider: true, content: ':'},{values: minutes()}],
-                onClose: p => sys.input.trigger("change_"),
+                on: { close: p => sys.input.trigger("change_") },
                 formatValue: (p, values) => {return `${values[0]}:${values[1]}`}
             });
             function hours() {
@@ -213,67 +225,6 @@ $_("icon").imports({
         xml: "<svg viewBox='0 0 1024 1024' width='200' height='200'>\
                 <path d='M512 0C229.229714 0 0 229.229714 0 512c0 113.956571 37.705143 218.843429 100.644571 303.945143l49.92-55.222857C101.851429 689.993143 73.142857 604.379429 73.142857 512 73.142857 269.604571 269.641143 73.142857 512 73.142857s438.857143 196.461714 438.857143 438.857143c0 242.358857-196.498286 438.857143-438.857143 438.857143-80.274286 0-155.318857-21.942857-220.086857-59.574857L242.029714 946.468571C320.475429 995.328 412.781714 1024 512 1024c282.770286 0 512-229.266286 512-512C1024 229.229714 794.770286 0 512 0zM412.598857 721.078857C419.84 728.32 429.348571 731.830857 438.857143 731.721143c9.508571 0.109714 19.017143-3.401143 26.258286-10.642286 0.694857-0.694857 0.914286-1.609143 1.536-2.340571l327.606857-327.533714c14.299429-14.299429 14.299429-37.412571 0-51.712s-37.449143-14.299429-51.712 0L438.857143 643.108571 281.453714 485.741714c-14.262857-14.299429-37.412571-14.299429-51.712 0s-14.299429 37.412571 0 51.712l181.321143 181.248C411.684571 719.469714 411.904 720.384 412.598857 721.078857z'/>\
               </svg>"
-    }
-});
-
-$_("loader").imports({
-    Loader: {
-        css: "#loader { padding: 0 16px 16px; background: #FFF; }",
-        xml: "<div id='loader'/>",
-        fun: function (sys, items, opts) {
-            var ptr, first = this.first();
-            this.on("next", (e, d) => {
-                e.stopPropagation();
-                ptr = ptr.next();
-                ptr.trigger("enter", d, false);
-            });
-            setTimeout(e => {
-                ptr = first;
-                ptr.trigger("enter", {}, false);
-            }, 0);
-        }
-    },
-    Link: {
-        fun: function (sys, items, opts) {
-            let head = document.getElementsByTagName('head')[0];
-            this.on("enter", e => {
-                let link = document.createElement('link');
-                link.type = 'text/css';
-                link.rel = 'stylesheet';
-                link.onload = () => {
-                    setTimeout(() => this.trigger("next"), 7);
-                };
-                link.href = opts.url;
-                head.appendChild(link);
-                this.watch("willRemoved", e => head.removeChild(link));
-            });
-        }
-    },
-    Script: {
-        fun: function (sys, items, opts) {
-            this.on("enter", (e, d) => {
-                require([opts.url], () => this.trigger("next"));
-            });
-        }
-    },
-    Header: {
-        css: "#header { position: relative; margin: 0; height: 44px; line-height: 44px; text-align: center; box-sizing: border-box; }\
-              #header:after { content: ''; position: absolute; left: 0; bottom: 0; right: auto; top: auto; height: 1px; width: 100%; background-color: #c4c4c4; display: block; z-index: 15; -webkit-transform-origin: 50% 100%; transform-origin: 50% 100%; }\
-              #close { position: absolute; left: 0; top: 0; margin-top: 8px; } #title { font-size: 18px; font-weight: bold; display: inline; }",
-        xml: "<header id='header'>\
-                <Icon id='close' xmlns='/'/>\
-                <h1 id='title'/>\
-              </header>",
-        fun: function (sys, items, opts) {
-            this.on("enter", e => this.trigger("next"));
-            sys.close.on("touchend", e => this.trigger("close"));
-            return { title: sys.title.text };
-        }
-    },
-    Defer: {
-        fun: function (sys, items, opts) {
-            this.on("enter", (e, d) => this.append(opts.target));
-        }
     }
 });
 
