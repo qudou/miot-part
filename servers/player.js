@@ -21,18 +21,18 @@ xmlplus("player", (xp, $_) => {
 
 $_().imports({
     Client: {
-        xml: "<i:Client id='client' xmlns:i='//musicbox' xmlns:c='client'>\
+        xml: "<i:Client id='client' xmlns:i='//musicbox'>\
                 <Index id='index'/>\
-                <c:Message id='message'/>\
-                <c:Control id='control'/>\
+                <Message id='message'/>\
+                <Control id='control'/>\
               </i:Client>",
-        map: { msgscope: true, share: "musicbox/NetEase schedule/Sqlite sqlite/Sqlite" }
+        map: { msgscope: true, share: "index/musicbox/NetEase index/schedule/Sqlite sqlite/Sqlite" }
     },
     Index: {
-        xml: "<main id='index'>\
-                <Musicbox id='musicbox'/>\
-                <Router id='router'/>\
-                <Schedule id='schedule'/>\
+        xml: "<main id='index' xmlns:i='index'>\
+                <i:Musicbox id='musicbox'/>\
+                <i:Router id='router'/>\
+                <i:Schedule id='schedule'/>\
               </main>",
         fun: function (sys, items, opts) {
             this.watch("service-ready", (e, message) => {
@@ -43,6 +43,51 @@ $_().imports({
             });
         }
     },
+    Message: {
+        xml: "<Sqlite id='sqlite' xmlns='/sqlite'/>",
+        fun: async function (sys, items, opts) {
+            let message = await options();
+            this.watch("msg-change", async (e, key, value) => {
+                await update(message[key] = value);
+                this.trigger("publish", message);
+            });
+            function options() {
+                return new Promise(resolve => {
+                    items.sqlite.all("SELECT * FROM options", (err, rows) => {
+                        err ? logger.error(err) : resolve(JSON.parse(rows[0].value));
+                    });
+                });
+            }
+            function update() {
+                return new Promise(resolve => {
+                    let stmt = items.sqlite.prepare("UPDATE options SET value=?");
+                    stmt.run(JSON.stringify(message), err => {
+                        err ? logger.error(err) : resolve(true);
+                    });
+                });
+            }
+            sys.sqlite.watch("msg-change", (e, key, value) => {
+                if (key == "stat" && value == "play")
+                    sys.sqlite.unwatch().notify("pl-vol#", message);
+            });
+            this.on("enter", (e, d) => this.trigger("publish", message));
+            this.notify("service-ready", message);
+        }
+    },
+    Control: {
+        fun: function (sys, items, opts) {
+            let set = new Set(
+                ["pl-toggle#", "pl-vol#", "sh-schedule#", "sh-reboot#", "sh-bluetooth#"]
+            );
+            this.on("enter", (e, dd) => {
+                let d = JSON.parse(dd.msgin);
+                set.has(d.key) && this.notify("*", [d.key, d]);
+            });
+        }
+    }
+});
+
+$_("index").imports({
     Musicbox: {
         xml: "<main xmlns:i='musicbox'>\
                 <i:Player id='player'/>\
@@ -113,7 +158,7 @@ $_().imports({
     }
 });
 
-$_("musicbox").imports({
+$_("index/musicbox").imports({
     Player: {
         fun: function (sys, items, opts) {
             let stat = "ready";
@@ -152,7 +197,7 @@ $_("musicbox").imports({
         }
     },
     Songlist: {
-        xml: "<Sqlite id='sqlite' xmlns='/schedule'/>",
+        xml: "<Sqlite id='sqlite' xmlns='../schedule'/>",
         fun: function (sys, items, opts) {
             let tmp = { id: undefined };
             async function next() {
@@ -187,7 +232,7 @@ $_("musicbox").imports({
     }
 });
 
-$_("schedule").imports({
+$_("index/schedule").imports({
     TimingSwitch: {
         xml: "<main id='timingSwitch'/>",
         fun: function (sys, items, opts) {
@@ -331,51 +376,6 @@ $_("schedule").imports({
                 });
             }
             return { exist: exist, length: length, insert: insert, unlink: unlink, last: last, random: random };
-        }
-    }
-});
-
-$_("client").imports({
-    Message: {
-        xml: "<Sqlite id='sqlite' xmlns='/sqlite'/>",
-        fun: async function (sys, items, opts) {
-            let message = await options();
-            this.watch("msg-change", async (e, key, value) => {
-                await update(message[key] = value);
-                this.trigger("publish", message);
-            });
-            function options() {
-                return new Promise(resolve => {
-                    items.sqlite.all("SELECT * FROM options", (err, rows) => {
-                        err ? logger.error(err) : resolve(JSON.parse(rows[0].value));
-                    });
-                });
-            }
-            function update() {
-                return new Promise(resolve => {
-                    let stmt = items.sqlite.prepare("UPDATE options SET value=?");
-                    stmt.run(JSON.stringify(message), err => {
-                        err ? logger.error(err) : resolve(true);
-                    });
-                });
-            }
-            sys.sqlite.watch("msg-change", (e, key, value) => {
-                if (key == "stat" && value == "play")
-                    sys.sqlite.unwatch().notify("pl-vol#", message);
-            });
-            this.on("enter", (e, d) => this.trigger("publish", message));
-            this.notify("service-ready", message);
-        }
-    },
-    Control: {
-        fun: function (sys, items, opts) {
-            let set = new Set(
-                ["pl-toggle#", "pl-vol#", "sh-schedule#", "sh-reboot#", "sh-bluetooth#"]
-            );
-            this.on("enter", (e, dd) => {
-                let d = JSON.parse(dd.msgin);
-                set.has(d.key) && this.notify("*", [d.key, d]);
-            });
         }
     }
 });

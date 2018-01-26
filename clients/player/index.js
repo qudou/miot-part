@@ -19,6 +19,7 @@ $_().imports({
         fun: function (sys, items, opts) {
             items.header.title(opts.name);
             this.trigger("publish", ["message"]);
+            this.glance("message", e => this.trigger("ready"))
         }
     },
     Header: {
