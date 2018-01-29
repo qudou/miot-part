@@ -17,7 +17,7 @@ const TimeInterval = 3600 * 1000;
 const Root = `${__dirname}/player`;
 const [Username, Password] = ["17095989603", "139500i"];
 
-xmlplus("player", (xp, $_) => {
+xmlplus("player", (xp, $_, t) => {
 
 $_().imports({
     Client: {
@@ -48,8 +48,10 @@ $_().imports({
         fun: async function (sys, items, opts) {
             let message = await options();
             this.watch("msg-change", async (e, key, value) => {
+                let change = {};
+                change[key] = value;
                 await update(message[key] = value);
-                this.trigger("publish", message);
+                this.trigger("publish", change);
             });
             function options() {
                 return new Promise(resolve => {
