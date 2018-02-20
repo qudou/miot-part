@@ -1,4 +1,11 @@
-xmlplus("10002", (xp, $_, t) => {
+/*!
+ * musicbox.js v1.0.0
+ * https://github.com/qudou/musicbox
+ * (c) 2009-2017 qudou
+ * Released under the MIT license
+ */
+
+xmlplus("c135d42e-2bc4-4a06-9f9e-054adf44a35d", (xp, $_, t) => {
 
 $_().imports({
     Icon: {

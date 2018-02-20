@@ -5,7 +5,7 @@
  * Released under the MIT license
  */
 
-xmlplus("10001", (xp, $_, t) => {
+xmlplus("eee825dc-d900-47ab-b98c-b4dc9aed31ae", (xp, $_, t) => {
 
 let app = new Framework7();
 
@@ -16,13 +16,8 @@ $_().imports({
                 <Content id='content'/>\
               </div>",
         fun: function (sys, items, opts) {
-            let message = {};
             items.navbar.title(opts.name);
-            this.trigger("publish", "message");
-            this.watch("message", (e, msg) => {
-                xp.extend(message, msg);
-                this.notify("msg-change", message);
-            }).glance("message", e => this.trigger("ready"));
+            this.notify("options", opts.data).trigger("ready");
         }
     },
     Navbar: {
@@ -48,10 +43,8 @@ $_().imports({
                 <div class='page-content'>\
                     <i:Player id='player'/>\
                     <i:Range id='vol'/>\
-                    <div class='block-title'>定时开启</div>\
-                    <i:TimePicker id='open'/>\
-                    <div class='block-title'>定时关闭</div>\
-                    <i:TimePicker id='stop'/>\
+                    <div class='block-title'>当前歌单</div>\
+                    <i:Picker id='picker'/>\
                 </div>\
               </div>",
         map: { nofragment: true },
@@ -64,13 +57,11 @@ $_().imports({
                 opts.timer = setTimeout(update, 10);
             });
             function update() {
-                let payload = [{pattern: items.open.value, action: "sh-open#"}, {pattern: items.stop.value, action: "sh-stop#"}];
-                sys.content.trigger("publish", ["control", {key: "sh-schedule#", schedule: payload}]);
+                sys.content.trigger("publish", ["control", {key: "pl-channel#", channel: items.picker.value}]);
             }
-            this.watch("msg-change", (e, data) => {
+            this.watch("options", (e, data) => {
                 items.vol.value = data.vol;
-                items.open.value = data.schedule[0].pattern;
-                items.stop.value = data.schedule[1].pattern;
+                items.picker.value = data.channel;
             });
         }
     }
@@ -112,7 +103,7 @@ $_("content").imports({
             });
             range.on("change", e => {
                 clearTimeout(timer);
-                timer = setTimeout(e => this.trigger("range-change"), 100); 
+                timer = setTimeout(e => this.trigger("range-change"), 300); 
             });
             function getValue() {
                 return range.getValue();
@@ -123,7 +114,7 @@ $_("content").imports({
             return Object.defineProperty({}, "value", { get: getValue, set: setValue });
         }
     },
-    TimePicker: {
+    Picker: {
         css: ".sheet-modal { z-index: 100000; }",
         xml: "<div class='list no-hairlines-md'>\
                 <ul><li><div class='item-content item-input'><div class='item-inner'><div class='item-input-wrap'>\
@@ -131,33 +122,20 @@ $_("content").imports({
                 </div></div></div></li></ul>\
               </div>",
         fun: function (sys, items, opts) {
-            let today = new Date();
             let picker = app.picker.create({
                 inputEl: sys.input.elem(),
                 rotateEffect: true,
                 toolbarCloseText: "确定",
-                value: [today.getHours(), today.getMinutes()],
-                cols: [{values: hours()},{divider: true, content: ':'},{values: minutes()}],
-                on: { close: p => sys.input.trigger("picker-change") },
-                formatValue: (p, values) => {return `${values[0]}:${values[1]}`}
+                value: ["豆瓣FM"],
+                cols: [{textAlign: 'center', values: ["豆瓣FM","新年歌单"]}],
+                on: { close: p => sys.input.trigger("picker-change") }
             });
-            function hours() {
-                let arr = [];
-                for (let i = 0; i <= 23; i++) arr.push(i < 10 ? '0' + i : i);
-                return arr;
-            }
-            function minutes() {
-                let arr = [];
-                for (let i = 0; i <= 59; i++) arr.push(i < 10 ? '0' + i : i);
-                return arr;
-            }
             function getValue() {
-                return picker.value.join(':');
+                return picker.value[0];
             }
             function setValue(value) {
                 if (getValue() == value) return;
-                let val = value.split(':');
-                picker.setValue([val[0], val[1]]);
+                picker.setValue([value]);
             }
             return Object.defineProperty({}, "value", { get: getValue, set: setValue });
         }
@@ -169,7 +147,7 @@ $_("content/player").imports({
         css: "#title { text-align: center; }", 
         xml: "<div id='title' class='block-title'>标题</div>",
         fun: function (sys, items, opts) {
-            this.watch("msg-change", (e, data) => {
+            this.watch("options", (e, data) => {
                 data.song && sys.title.text(data.song.name);
             });
         }
@@ -188,7 +166,7 @@ $_("content/player").imports({
                 sys.toggle.trigger("switch", table[this]);
                 sys.toggle.trigger("publish", ["control", {key: "pl-toggle#"}]);
             });
-            this.watch("msg-change", (e, data) => {
+            this.watch("options", (e, data) => {
                 sys.toggle.trigger("switch", table[data.stat]);
             });
         }
