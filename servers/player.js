@@ -5,9 +5,8 @@
  * Released under the MIT license
  */
 
-const xmlplus = require("xmlplus");
 const fs = require("fs");
-const schedule = require("node-schedule");
+const xmlplus = require("xmlplus");
 const log4js = require("log4js");
 const logger = log4js.getLogger("musicbox");
 
@@ -16,7 +15,6 @@ const TimeInterval = 3600 * 1000;
 const Root = `${__dirname}/player`;
 const [Username, Password] = ["17095989603", "139500i"];
 
-let Channel = "豆瓣FM";
 const Channels = { "新年歌单": 2101863569 };
 
 xmlplus("player", (xp, $_, t) => {
@@ -28,7 +26,7 @@ $_().imports({
                 <Message id='message'/>\
                 <Control id='control'/>\
               </i:Client>",
-        map: { share: "index/musicbox/NetEase index/schedule/Sqlite sqlite/Sqlite" }
+        map: { share: "index/musicbox/NetEase index/schedule/Database sqlite/Sqlite" }
     },
     Index: {
         xml: "<main id='index' xmlns:i='index'>\
@@ -46,7 +44,6 @@ $_().imports({
                         sys.player.unwatch().notify("pl-vol#", message);
                 });
                 this.notify("pl-channel#", message);
-                logger.info("service is ready");
             });
         }
     },
@@ -69,16 +66,18 @@ $_("index").imports({
                 <i:Songlist id='songlist'/>\
               </main>",
         fun: function (sys, items, opts) {
-            let timer, list = items.songlist;
+            let timer, channel;
             this.watch("pl-channel#", (e, msg) => {
-                Channel = msg.channel;
-                this.trigger("publish", ["channel", Channel]);
+                channel = msg.channel;
+                this.trigger("publish", ["channel", channel]);
                 this.notify("pl-next#").notify("quantity-control");
             });
             this.watch("pl-next#", async e => {
-                let d = {song: await list.next()};
-                if (d.song)
+                let d = {song: await items.songlist.next()};
+                if (d.song) {
+                    d.mp3Url = `${Root}/${channel}/${d.song.mp3Url}`
                     return this.notify("*", ["pl-pause pl-play", d]);
+                }
                 clearTimeout(timer);
                 timer = setTimeout(e => this.notify("pl-next#"), 300 * 1000);
             });
@@ -121,20 +120,23 @@ $_("index").imports({
                 <i:Download id='download'/>\
                 <i:UnlinkFM id='unlinkFM'/>\
                 <i:UnlinkPL id='unlinkPL'/>\
-                <i:Sqlite id='sqlite'/>\
+                <i:Database id='database'/>\
                 <NetEase id='netease' xmlns='musicbox'/>\
               </main>",
         fun: function (sys, items, opts) {
+            let channel = "豆瓣FM";
+            let schedule = require("node-schedule");
             schedule.scheduleJob("0 8 * * *", async e => {
                 let login = await items.netease.login(Username, Password);
                 if (login.code !== 200)
                     logger.error(`login error! code: ${login.code}`);
             });
             this.watch("quantity-control", async () => {
-                if (Channel == "豆瓣FM")
-                    return this.notify(await items.sqlite.length() < ListLength ? "download" : "unlink-fm");
+                if (channel == "豆瓣FM")
+                    return this.notify(await items.database.length() < ListLength ? "download" : "unlink-fm");
                 this.notify("download").notify("unlink-pl");
             });
+            this.watch("channel-change", (e, value) => channel = value)
             setInterval(e => this.notify("quantity-control"), TimeInterval);
         }
     }
@@ -166,7 +168,7 @@ $_("index/musicbox").imports({
                     this.notify("*", stat == "play" ? "pl-pause" : "pl-resume");
             });
             this.watch("pl-play", (e, d) => {
-                player.play(`${Root}/${Channel}/${d.song.mp3Url}`);
+                player.play(d.mp3Url);
                 this.trigger("publish", ["song", d.song]);
             });
             player.on("end", e => {
@@ -179,11 +181,11 @@ $_("index/musicbox").imports({
         }
     },
     Songlist: {
-        xml: "<Sqlite id='sqlite' xmlns='../schedule'/>",
+        xml: "<Database id='db' xmlns='../schedule'/>",
         fun: function (sys, items, opts) {
             let tmp = { id: undefined };
             async function next() {
-                let song = await items.sqlite.random();
+                let song = await items.db.random();
                 if (!song) return;
                 return song.id == tmp.id ? next() : (tmp = song);
             }
@@ -217,19 +219,20 @@ $_("index/musicbox").imports({
 $_("index/schedule").imports({
     Download: {
         xml: "<main id='download'>\
-                <Sqlite id='sqlite'/>\
+                <Database id='db'/>\
                 <NetEase id='netease' xmlns='../musicbox'/>\
               </main>",
         fun: async function (sys, items, opts) {
+            let channel = "豆瓣FM";
             let request = require("request");
             this.watch("download", async () => {
-                let channel = Channel;
-                let song, songs = await songsByChannel(channel);
-                for (song of songs) {
-                    if (await items.sqlite.exist(song.id)) continue;
+                let channel_ = channel;
+                let songs = await songsByChannel(channel_);
+                for (let song of songs) {
+                    if (await items.db.exist(song.id)) continue;
                     song.mp3Url = (await items.netease.songs_detail_new_api(song.id)).url;
-                    if (song.mp3Url) { 
-                        download(channel, song); break;
+                    if (song.mp3Url) {
+                        download(channel_, song); break;
                     }
                 }
             });
@@ -244,7 +247,7 @@ $_("index/schedule").imports({
                 let download = fs.createWriteStream(filePath);
                 download.once('error', e => logger.error(e));
                 download.once('finish', async e => {
-                    await items.sqlite.insert(song.id, song.name, filename);
+                    await items.db.insert(song.id, song.name, filename);
                 });
                 try {
                     request(song.mp3Url).pipe(download);
@@ -252,46 +255,52 @@ $_("index/schedule").imports({
                     logger.error(err);
                 }
             }
+            this.watch("channel-change", (e, value) => channel = value);
         }
     },
     UnlinkFM: {
-        xml: "<Sqlite id='sqlite'/>",
+        xml: "<Database id='db'/>",
         fun: function (sys, items, opts) {
             let current = {id: undefined};
             this.watch("unlink-fm", async () => {
-                let song = await items.sqlite.last();
+                let song = await items.db.last();
                 if (song == null || song.id == current.id) return;
-                await items.sqlite.unlink(song);
+                await items.db.unlink(song);
             });
             this.watch("song-change", (e, value) => current = value);
         }
     },
     UnlinkPL: {
         xml: "<main id='download'>\
-                <Sqlite id='sqlite'/>\
+                <Database id='db'/>\
                 <NetEase id='netease' xmlns='../musicbox'/>\
               </main>",
         fun: function (sys, items, opts) {
+            let channel = "豆瓣FM";
             let current = {id: undefined};
             this.watch("unlink-pl", async () => {
                 let canRemove = true;
-                let song = await items.sqlite.random();
+                let ch = Channels[channel];
+                let song = await items.db.random();
                 if (song == null || song.id == current.id) return;
-                let songs = await items.netease.playlist_detail(Channels[Channel]) || [];
+                let songs = await items.netease.playlist_detail(ch) || [];
                 for (let item of songs)
                     if (item.id == song.id)
                         canRemove = false;
-                songs.length && canRemove && await items.sqlite.unlink(song);
+                songs.length && canRemove && await items.db.unlink(song);
             });
             this.watch("song-change", (e, value) => current = value);
+            this.watch("channel-change", (e, value) => channel = value);
         }
     },
-    Sqlite: {
+    Database: {
         xml: "<Sqlite id='sqlite' xmlns='/sqlite'/>",
         fun: function (sys, items, opts) {
+            let channel = "豆瓣FM";
+            this.watch("channel-change", (e, value) => channel = value);
             function exist(songId) {
                 return new Promise((resolve, reject) => {
-                    let stmt = `SELECT count(*) AS count FROM ${Channel} WHERE id=${songId}`;
+                    let stmt = `SELECT count(*) AS count FROM ${channel} WHERE id=${songId}`;
                     items.sqlite.all(stmt, (err, data) => {
                         if (err) throw err;
                         resolve(data[0].count);
@@ -300,7 +309,7 @@ $_("index/schedule").imports({
             }
             function length() {
                 return new Promise((resolve, reject) => {
-                    let stmt = `SELECT count(*) AS count FROM ${Channel}`;
+                    let stmt = `SELECT count(*) AS count FROM ${channel}`;
                     items.sqlite.all(stmt, (err, data) => {
                         if (err) throw err;
                         resolve(data[0].count);
@@ -309,7 +318,7 @@ $_("index/schedule").imports({
             }
             function insert(id, name, mp3Url) {
                 return new Promise((resolve, reject) => {
-                    let stmt = items.sqlite.prepare(`INSERT INTO ${Channel}(id,name,mp3Url) VALUES(?,?,?)`);
+                    let stmt = items.sqlite.prepare(`INSERT INTO ${channel}(id,name,mp3Url) VALUES(?,?,?)`);
                     stmt.run(id, name, mp3Url, (err) => {
                         if (err) throw err;
                         resolve(true);
@@ -318,11 +327,11 @@ $_("index/schedule").imports({
             }
             function unlink(song) {
                 return new Promise((resolve, reject) => {
-                    let channel = Channel;
-                    let stmt = items.sqlite.prepare(`DELETE FROM ${Channel} WHERE id = ${song.id}`);
+                    let ch = channel;
+                    let stmt = items.sqlite.prepare(`DELETE FROM ${ch} WHERE id = ${song.id}`);
                     stmt.run(err => {
                         if (err) throw err;
-                        else fs.unlink(`${Root}/${channel}/${song.mp3Url}`, err => {
+                        fs.unlink(`${Root}/${ch}/${song.mp3Url}`, err => {
                             if (err) throw err;
                             resolve(true);
                         });
@@ -331,7 +340,7 @@ $_("index/schedule").imports({
             }
             function last() {
                 return new Promise((resolve, reject) => {
-                    let stmt = `SELECT * FROM ${Channel} ORDER BY createtime LIMIT 1`;
+                    let stmt = `SELECT * FROM ${channel} ORDER BY createtime LIMIT 1`;
                     items.sqlite.all(stmt, (err, data) => {
                         if (err) throw err;
                         resolve(data[0]);
@@ -340,7 +349,7 @@ $_("index/schedule").imports({
             }
             function random() {
                 return new Promise((resolve, reject) => {
-                    let stmt = `SELECT * FROM ${Channel} ORDER BY RANDOM() LIMIT 1`;
+                    let stmt = `SELECT * FROM ${channel} ORDER BY RANDOM() LIMIT 1`;
                     items.sqlite.all(stmt, (err, data) => {
                         if (err) throw err;
                         resolve(data[0]);

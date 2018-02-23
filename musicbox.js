@@ -37,7 +37,7 @@ $_().imports({
             client.on("connect", e => {
                 Object.keys(table).forEach(partId => client.subscribe(partId));
                 console.log("connected to " + opts.server);
-                logger.info("connected to " + opts.server)
+                logger.info("connected to " + opts.server);
             });
             client.on("message", (topic, msg) => {
                 if (table[topic])
