@@ -9,13 +9,13 @@ require("./servers/player.js");
 require("./servers/auto.js");
 
 const xmlplus = require("xmlplus");
-const MiotRoot = `${__dirname}/../miot/`;
+const MiotRoot = `${__dirname}/../miot-local/`;
 const Gateway = "aee81434-fe5f-451a-b522-ae4631da5f45";
 
-const log4js = require('log4js');
+const log4js = require("log4js");
 log4js.configure({
-    appenders: { musicbox: { type: 'file', filename: `${__dirname}/musicbox.log` } },
-    categories: { default: { appenders: ['musicbox'], level: 'debug' } }
+    appenders: { musicbox: { type: "file", filename: `${__dirname}/musicbox.log` } },
+    categories: { default: { appenders: ["musicbox"], level: "debug" } }
 });
 const logger = log4js.getLogger('musicbox');
 
@@ -23,10 +23,10 @@ xmlplus("musicbox", (xp, $_, t) => {
 
 $_().imports({
     Index: {
-        xml: `<MQTT id='mqtt'>
-                <Client id='96b2e3ce-917e-4551-98ee-02a0a3a9c93e' desc='player' xmlns='//player'/>
-                <Client id='445cd2f5-bd07-45c0-9c82-86c0cb3da3b1' desc='auto' xmlns='//auto'/>
-              </MQTT>`,
+        xml: "<MQTT id='mqtt'>\
+                <Client id='96b2e3ce-917e-4551-98ee-02a0a3a9c93e' xmlns='//player'/>\
+                <Client id='445cd2f5-bd07-45c0-9c82-86c0cb3da3b1' xmlns='//auto'/>\
+              </MQTT>",
         map: { share: "/sqlite/Sqlite" }
     },
     MQTT: {
