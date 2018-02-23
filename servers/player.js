@@ -73,9 +73,10 @@ $_("index").imports({
                 this.notify("pl-next#").notify("quantity-control");
             });
             this.watch("pl-next#", async e => {
+                let ch = channel;
                 let d = {song: await items.songlist.next()};
                 if (d.song) {
-                    d.mp3Url = `${Root}/${channel}/${d.song.mp3Url}`
+                    d.mp3Url = `${Root}/${ch}/${d.song.mp3Url}`
                     return this.notify("*", ["pl-pause pl-play", d]);
                 }
                 clearTimeout(timer);
