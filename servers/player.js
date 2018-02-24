@@ -43,7 +43,7 @@ $_().imports({
                     if (value == "play")
                         sys.player.unwatch().notify("pl-vol#", message);
                 });
-                this.notify("pl-channel#", message);
+                this.notify("pl-channel#", message).notify("quantity-control");
             });
         }
     },
@@ -69,12 +69,11 @@ $_("index").imports({
             let timer, channel;
             this.watch("pl-channel#", (e, msg) => {
                 channel = msg.channel;
-                this.trigger("publish", ["channel", channel]);
-                this.notify("pl-next#").notify("quantity-control");
+                this.trigger("publish", ["channel", channel]).notify("pl-next#");
             });
             this.watch("pl-next#", async e => {
                 let ch = channel;
-                let d = {song: await items.songlist.next()};
+                let d = {song: await items.songlist.next(ch)};
                 if (d.song) {
                     d.mp3Url = `${Root}/${ch}/${d.song.mp3Url}`
                     return this.notify("*", ["pl-pause pl-play", d]);
@@ -134,8 +133,8 @@ $_("index").imports({
             });
             this.watch("quantity-control", async () => {
                 if (channel == "豆瓣FM")
-                    return this.notify(await items.database.length() < ListLength ? "download" : "unlink-fm");
-                this.notify("download").notify("unlink-pl");
+                    return this.notify(await items.database.length(channel) < ListLength ? "download" : "unlink-fm", channel);
+                this.notify("download", channel).notify("unlink-pl", channel);
             });
             this.watch("channel-change", (e, value) => channel = value)
             setInterval(e => this.notify("quantity-control"), TimeInterval);
@@ -185,10 +184,10 @@ $_("index/musicbox").imports({
         xml: "<Database id='db' xmlns='../schedule'/>",
         fun: function (sys, items, opts) {
             let tmp = { id: undefined };
-            async function next() {
-                let song = await items.db.random();
+            async function next(channel) {
+                let song = await items.db.random(channel);
                 if (!song) return;
-                return song.id == tmp.id ? next() : (tmp = song);
+                return song.id == tmp.id ? next(channel) : (tmp = song);
             }
             return { next: next };
         }
@@ -224,16 +223,14 @@ $_("index/schedule").imports({
                 <NetEase id='netease' xmlns='../musicbox'/>\
               </main>",
         fun: async function (sys, items, opts) {
-            let channel = "豆瓣FM";
             let request = require("request");
-            this.watch("download", async () => {
-                let channel_ = channel;
-                let songs = await songsByChannel(channel_);
+            this.watch("download", async (e, channel) => {
+                let songs = await songsByChannel(channel);
                 for (let song of songs) {
-                    if (await items.db.exist(song.id)) continue;
+                    if (await items.db.exist(channel, song.id)) continue;
                     song.mp3Url = (await items.netease.songs_detail_new_api(song.id)).url;
                     if (song.mp3Url) {
-                        download(channel_, song); break;
+                        download(channel, song); break;
                     }
                 }
             });
@@ -248,7 +245,7 @@ $_("index/schedule").imports({
                 let download = fs.createWriteStream(filePath);
                 download.once('error', e => logger.error(e));
                 download.once('finish', async e => {
-                    await items.db.insert(song.id, song.name, filename);
+                    await items.db.insert(channel, song.id, song.name, filename);
                 });
                 try {
                     request(song.mp3Url).pipe(download);
@@ -256,17 +253,16 @@ $_("index/schedule").imports({
                     logger.error(err);
                 }
             }
-            this.watch("channel-change", (e, value) => channel = value);
         }
     },
     UnlinkFM: {
         xml: "<Database id='db'/>",
         fun: function (sys, items, opts) {
             let current = {id: undefined};
-            this.watch("unlink-fm", async () => {
-                let song = await items.db.last();
+            this.watch("unlink-fm", async (e, channel) => {
+                let song = await items.db.last(channel);
                 if (song == null || song.id == current.id) return;
-                await items.db.unlink(song);
+                await items.db.unlink(channel, song);
             });
             this.watch("song-change", (e, value) => current = value);
         }
@@ -277,29 +273,24 @@ $_("index/schedule").imports({
                 <NetEase id='netease' xmlns='../musicbox'/>\
               </main>",
         fun: function (sys, items, opts) {
-            let channel = "豆瓣FM";
             let current = {id: undefined};
-            this.watch("unlink-pl", async () => {
+            this.watch("unlink-pl", async (e, channel) => {
                 let canRemove = true;
-                let ch = Channels[channel];
-                let song = await items.db.random();
+                let song = await items.db.random(channel);
                 if (song == null || song.id == current.id) return;
-                let songs = await items.netease.playlist_detail(ch) || [];
+                let songs = await items.netease.playlist_detail(Channels[channel]) || [];
                 for (let item of songs)
                     if (item.id == song.id)
                         canRemove = false;
-                songs.length && canRemove && await items.db.unlink(song);
+                songs.length && canRemove && await items.db.unlink(channel, song);
             });
             this.watch("song-change", (e, value) => current = value);
-            this.watch("channel-change", (e, value) => channel = value);
         }
     },
     Database: {
         xml: "<Sqlite id='sqlite' xmlns='/sqlite'/>",
         fun: function (sys, items, opts) {
-            let channel = "豆瓣FM";
-            this.watch("channel-change", (e, value) => channel = value);
-            function exist(songId) {
+            function exist(channel, songId) {
                 return new Promise((resolve, reject) => {
                     let stmt = `SELECT count(*) AS count FROM ${channel} WHERE id=${songId}`;
                     items.sqlite.all(stmt, (err, data) => {
@@ -308,7 +299,7 @@ $_("index/schedule").imports({
                     });
                 });
             }
-            function length() {
+            function length(channel) {
                 return new Promise((resolve, reject) => {
                     let stmt = `SELECT count(*) AS count FROM ${channel}`;
                     items.sqlite.all(stmt, (err, data) => {
@@ -317,7 +308,7 @@ $_("index/schedule").imports({
                     });
                 });
             }
-            function insert(id, name, mp3Url) {
+            function insert(channel, id, name, mp3Url) {
                 return new Promise((resolve, reject) => {
                     let stmt = items.sqlite.prepare(`INSERT INTO ${channel}(id,name,mp3Url) VALUES(?,?,?)`);
                     stmt.run(id, name, mp3Url, (err) => {
@@ -326,20 +317,19 @@ $_("index/schedule").imports({
                     });
                 });
             }
-            function unlink(song) {
+            function unlink(channel, song) {
                 return new Promise((resolve, reject) => {
-                    let ch = channel;
-                    let stmt = items.sqlite.prepare(`DELETE FROM ${ch} WHERE id = ${song.id}`);
+                    let stmt = items.sqlite.prepare(`DELETE FROM ${channel} WHERE id = ${song.id}`);
                     stmt.run(err => {
                         if (err) throw err;
-                        fs.unlink(`${Root}/${ch}/${song.mp3Url}`, err => {
+                        fs.unlink(`${Root}/${channel}/${song.mp3Url}`, err => {
                             if (err) throw err;
                             resolve(true);
                         });
                     });
                 });
             }
-            function last() {
+            function last(channel) {
                 return new Promise((resolve, reject) => {
                     let stmt = `SELECT * FROM ${channel} ORDER BY createtime LIMIT 1`;
                     items.sqlite.all(stmt, (err, data) => {
@@ -348,7 +338,7 @@ $_("index/schedule").imports({
                     });
                 });
             }
-            function random() {
+            function random(channel) {
                 return new Promise((resolve, reject) => {
                     let stmt = `SELECT * FROM ${channel} ORDER BY RANDOM() LIMIT 1`;
                     items.sqlite.all(stmt, (err, data) => {
