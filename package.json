@@ -1,18 +1,17 @@
 {
-  "name": "musicbox",
+  "name": "miot-parts",
   "version": "1.0.0",
-  "description": "a musicbox",
-  "main": "musicbox.js",
+  "description": "miot-parts",
+  "main": "miot-parts.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
-    "musicbox"
+    "miot-parts"
   ],
   "author": "qudou",
   "license": "MIT",
   "dependencies": {
-    "getmac": "^1.2.1",
     "log4js": "^2.3.7",
     "md5": "^2.2.1",
     "mpg123": "^0.2.3",

@@ -1,17 +1,17 @@
 #!/bin/sh
 ### BEGIN INIT INFO
-# Provides:          musicbox
+# Provides:          miot-parts
 # Required-Start:    $local_fs $remote_fs $network $syslog $named
 # Required-Stop:     $local_fs $remote_fs $network $syslog $named
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # X-Interactive:     true
-# Short-Description: Start/stop musicbox server
+# Short-Description: Start/stop miot-parts server
 ### END INIT INFO
 
-DEAMON=/root/musicbox/musicbox.js
-LOG=/var/log/musicbox.log
-PID=/var/run/musicbox.pid
+DEAMON=/root/miot-parts/miot-parts.js
+LOG=/var/log/miot-parts.log
+PID=/var/run/miot-parts.pid
 
 export PATH=$PATH:/usr/local/bin
 export NODE_PATH=$NODE_PATH:/usr/local/lib/node_modules

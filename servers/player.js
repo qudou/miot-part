@@ -43,7 +43,7 @@ $_().imports({
                     if (value == "play")
                         sys.player.unwatch().notify("pl-vol#", message);
                 });
-                this.notify("pl-channel#", message).notify("quantity-control");
+                this.notify("pl-channel#", message);
             });
         }
     },
@@ -66,7 +66,7 @@ $_("index").imports({
                 <i:Songlist id='songlist'/>\
               </main>",
         fun: function (sys, items, opts) {
-            let timer, channel;
+            let timer, channel, notified = {};
             this.watch("pl-channel#", (e, msg) => {
                 channel = msg.channel;
                 this.trigger("publish", ["channel", channel]).notify("pl-next#");
@@ -74,12 +74,13 @@ $_("index").imports({
             this.watch("pl-next#", async e => {
                 let ch = channel;
                 let d = {song: await items.songlist.next(ch)};
+                clearTimeout(timer);
                 if (d.song) {
                     d.mp3Url = `${Root}/${ch}/${d.song.mp3Url}`
                     return this.notify("*", ["pl-pause pl-play", d]);
                 }
-                clearTimeout(timer);
                 timer = setTimeout(e => this.notify("pl-next#"), 300 * 1000);
+                notified[ch] || this.notify("quantity-control") && (notified[ch] = 1);
             });
         }
     },

@@ -7,10 +7,10 @@
 
 require("./servers/player.js");
 require("./servers/auto.js");
+require("./servers/system.js");
 
 const xmlplus = require("xmlplus");
 const MiotRoot = `${__dirname}/../miot-local/`;
-const Gateway = "aee81434-fe5f-451a-b522-ae4631da5f45";
 
 const log4js = require("log4js");
 log4js.configure({
@@ -26,6 +26,7 @@ $_().imports({
         xml: "<MQTT id='mqtt'>\
                 <Client id='96b2e3ce-917e-4551-98ee-02a0a3a9c93e' xmlns='//player'/>\
                 <Client id='445cd2f5-bd07-45c0-9c82-86c0cb3da3b1' xmlns='//auto'/>\
+                <Client id='2ce3d22e-1bb2-11e8-accf-0ed5f89f718b' xmlns='//system'/>\
               </MQTT>",
         map: { share: "/sqlite/Sqlite" }
     },
@@ -46,7 +47,7 @@ $_().imports({
             this.on("$publish", "./*[@id]", function (e, msg) {
                 e.stopPropagation();
                 msg.ssid = this.toString();
-                client.publish(Gateway, JSON.stringify(msg), {qos:1,retain: true});
+                client.publish("to-gateway", JSON.stringify(msg), {qos:1,retain: true});
             });
             this.on("#publish", "./*[@id]", function (e, topic, msg) {
                 e.stopPropagation();
@@ -67,10 +68,11 @@ $_().imports({
             });
             this.on("publish", "./*[@id]", function (e, key, value) {
                 e.stopPropagation();
-                change[key] = value;
+                let isKey = typeof key == "string";
+                isKey ? (change[key] = value) : xp.extend(change, key);
                 clearTimeout(timer);
                 timer = setTimeout(e => dispatch(this), 300);
-                this.notify(`${key}-change`, [value]);
+                isKey && this.notify(`${key}-change`, [value]);
             });
             function dispatch(that) {
                 that.trigger("$publish", {topic: that + '', data: change});

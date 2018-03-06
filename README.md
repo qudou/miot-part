@@ -1,6 +1,6 @@
-# musicbox
+# miot-parts
 
-基于树莓派的网易云音乐播放器。该播放器专为物联平台 [miot](https://github.com/qudou/miot) 设计，client 目录包含的是客户端文件。
+基于树莓派的物联网配件集。该配件集专为物联平台 [miot](https://github.com/qudou/miot) 设计，client 目录包含的是客户端文件。
 
 
 ## 播放器配置
@@ -18,20 +18,20 @@ $ sudo npm install forever -g
 
 ## 安装自启动脚本
 
-1. 移动文件 `musicbox` 至目录 `/etc/init.d/`
+1. 移动文件 `miot-parts` 至目录 `/etc/init.d/`
 
 ```bash
-$ sudo mv musicbox /etc/init.d/
+$ sudo mv miot-parts /etc/init.d/
 ```
 
 2. 修改拷贝后文件的执行权限
 
 ```bash
-$ sudo chmod 755 /etc/init.d/musicbox
+$ sudo chmod 755 /etc/init.d/miot-parts
 ```
 
 3. 添加开机启动项
 
 ```bash
-$ sudo update-rc.d musicbox defaults
+$ sudo update-rc.d miot-parts defaults
 ```
