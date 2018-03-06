@@ -1,6 +1,6 @@
 /*!
- * musicbox.js v1.0.0
- * https://github.com/qudou/musicbox
+ * miot-parts.js v1.0.0
+ * https://github.com/qudou/miot-parts
  * (c) 2009-2017 qudou
  * Released under the MIT license
  */
@@ -14,12 +14,12 @@ const MiotRoot = `${__dirname}/../miot-local/`;
 
 const log4js = require("log4js");
 log4js.configure({
-    appenders: { musicbox: { type: "file", filename: `${__dirname}/musicbox.log` } },
-    categories: { default: { appenders: ["musicbox"], level: "debug" } }
+    appenders: { miot-parts: { type: "file", filename: `${__dirname}/miot-parts.log` } },
+    categories: { default: { appenders: ["miot-parts"], level: "debug" } }
 });
-const logger = log4js.getLogger('musicbox');
+const logger = log4js.getLogger('miot-parts');
 
-xmlplus("musicbox", (xp, $_, t) => {
+xmlplus("miot-parts", (xp, $_, t) => {
 
 $_().imports({
     Index: {
@@ -137,4 +137,4 @@ $_("sqlite").imports({
     }
 });
 
-}).startup("//musicbox/Index");
+}).startup("//miot-parts/Index");

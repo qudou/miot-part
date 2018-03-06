@@ -8,7 +8,7 @@
 const fs = require("fs");
 const xmlplus = require("xmlplus");
 const log4js = require("log4js");
-const logger = log4js.getLogger("musicbox");
+const logger = log4js.getLogger("miot-parts");
 
 const ListLength = 300;
 const TimeInterval = 3600 * 1000;
