@@ -1,6 +1,6 @@
 /*!
  * auto.js v1.0.0
- * https://github.com/qudou/musicbox
+ * https://github.com/qudou/miot-parts
  * (c) 2009-2017 qudou
  * Released under the MIT license
  */
@@ -12,19 +12,19 @@ xmlplus("auto", (xp, $_, t) => {
 
 $_().imports({
     Client: {
-        xml: "<i:Client id='client' xmlns:i='//musicbox'>\
+        xml: "<i:Client id='client' xmlns:i='//miot-parts'>\
                 <Schedule id='schedule'/>\
                 <Message id='message'/>\
               </i:Client>"
     },
     Message: {
-        xml: "<Auto id='auto' xmlns='//musicbox/parts'/>",
+        xml: "<Auto id='auto' xmlns='//miot-parts/parts'/>",
         fun: function (sys, items, opts) {
             this.once("enter", (e, msg) => this.notify("sh-schedule#", msg));
         }
     },
     Schedule: {
-        xml: "<Player id='player' xmlns='//musicbox/parts'/>",
+        xml: "<Player id='player' xmlns='//miot-parts/parts'/>",
         fun: function (sys, items, opts) {
             let jobs = [];
             this.watch("sh-schedule#", (e, d) => {

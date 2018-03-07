@@ -1,6 +1,6 @@
 /*!
  * player.js v1.0.0
- * https://github.com/qudou/musicbox
+ * https://github.com/qudou/miot-parts
  * (c) 2009-2017 qudou
  * Released under the MIT license
  */
@@ -21,7 +21,7 @@ xmlplus("player", (xp, $_, t) => {
 
 $_().imports({
     Client: {
-        xml: "<i:Client id='client' xmlns:i='//musicbox'>\
+        xml: "<i:Client id='client' xmlns:i='//miot-parts'>\
                 <Index id='index'/>\
                 <Message id='message'/>\
                 <Control id='control'/>\
@@ -36,7 +36,7 @@ $_().imports({
               </main>"
     },
     Message: {
-        xml: "<Player id='player' xmlns='//musicbox/parts'/>",
+        xml: "<Player id='player' xmlns='//miot-parts/parts'/>",
         fun: function (sys, items, opts) {
             this.once("enter", (e, message) => {
                 sys.player.watch("stat-change", (e, value) => {

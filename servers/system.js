@@ -1,6 +1,6 @@
 /*!
  * system.js v1.0.0
- * https://github.com/qudou/musicbox
+ * https://github.com/qudou/miot-parts
  * (c) 2009-2017 qudou
  * Released under the MIT license
  */
@@ -12,7 +12,7 @@ xmlplus("system", (xp, $_, t) => {
 
 $_().imports({
     Client: {
-        xml: "<i:Client id='client' xmlns:i='//musicbox'>\
+        xml: "<i:Client id='client' xmlns:i='//miot-parts'>\
                 <Infomation id='info'/>\
               </i:Client>"
     },

@@ -14,7 +14,7 @@ const MiotRoot = `${__dirname}/../miot-local/`;
 
 const log4js = require("log4js");
 log4js.configure({
-    appenders: { miot-parts: { type: "file", filename: `${__dirname}/miot-parts.log` } },
+    appenders: { "miot-parts": { type: "file", filename: `${__dirname}/miot-parts.log` } },
     categories: { default: { appenders: ["miot-parts"], level: "debug" } }
 });
 const logger = log4js.getLogger('miot-parts');
@@ -31,7 +31,7 @@ $_().imports({
         map: { share: "/sqlite/Sqlite" }
     },
     MQTT: {
-        opt: { server: "mqtt://127.0.0.1:1883", clientId: "7ac4c6ac-83a6-4e2a-a019-6b577d38ca71" },
+        opt: { server: "mqtt://127.0.0.1:1883", clientId: "5971b164-779f-4bfa-a676-16582a77d7e9" },
         fun: function (sys, items, opts) {
             let table = this.children().hash();
             let client  = require("mqtt").connect(opts.server, opts);
