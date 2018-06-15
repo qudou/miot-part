@@ -1,6 +1,6 @@
 /*!
  * index.js v1.0.0
- * https://github.com/qudou/musicbox
+ * https://github.com/qudou/miot-parts
  * (c) 2009-2017 qudou
  * Released under the MIT license
  */
@@ -17,7 +17,7 @@ $_().imports({
               </div>",
         fun: function (sys, items, opts) {
             items.navbar.title(opts.name);
-            this.notify("options", opts.data).trigger("ready");
+            this.notify("options", opts.data);
         }
     },
     Navbar: {
@@ -44,24 +44,18 @@ $_().imports({
                     <i:Player id='player'/>\
                     <i:Range id='vol'/>\
                     <div class='block-title'>当前歌单</div>\
-                    <i:Picker id='picker'/>\
+                    <i:Channel id='channel'/>\
+                    <div class='block-title'>同步时间</div>\
+                    <i:Interval id='interval'/>\
                 </div>\
               </div>",
         map: { nofragment: true },
         fun: function (sys, items, opts) {
             sys.vol.on("range-change", e => {
-                this.trigger("publish", ["control", { key: "pl-vol#", vol: items.vol.value }]);
+                this.trigger("publish", ["control", {vol: items.vol.value }]);
             });
-            sys.content.on("picker-change", e => {
-                clearTimeout(opts.timer);
-                opts.timer = setTimeout(update, 10);
-            });
-            function update() {
-                sys.content.trigger("publish", ["control", {key: "pl-channel#", channel: items.picker.value}]);
-            }
             this.watch("options", (e, data) => {
                 items.vol.value = data.vol;
-                items.picker.value = data.channel;
             });
         }
     }
@@ -114,6 +108,38 @@ $_("content").imports({
             return Object.defineProperty({}, "value", { get: getValue, set: setValue });
         }
     },
+    Channel: {
+        xml: "<Picker id='channel'/>",
+        cfg: {channel: { value: "豆瓣FM", values: ["豆瓣FM","轻音乐","新年歌单"]}},
+        fun: function (sys, items, opts) {
+            sys.channel.on("picker-change", e => {
+                clearTimeout(opts.timer);
+                opts.timer = setTimeout(update, 10);
+            });
+            function update() {
+                sys.channel.trigger("publish", ["control", {channel: items.channel.value}]);
+            }
+            this.watch("options", (e, data) => {
+                items.channel.value = data.channel;
+            });
+        }
+    },
+    Interval: {
+        xml: "<Picker id='interval'/>",
+        cfg: {interval: {value: "60", values: ["3", '60', '120'], displayValues: ["3分钟","1小时","2小时"]}},
+        fun: function (sys, items, opts) {
+            sys.interval.on("picker-change", e => {
+                clearTimeout(opts.timer);
+                opts.timer = setTimeout(update, 10);
+            });
+            function update() {
+                sys.interval.trigger("publish", ["control", {interval: items.interval.value}]);
+            }
+            this.watch("options", (e, data) => {
+                items.interval.value = data.interval;
+            });
+        }
+    },
     Picker: {
         css: ".sheet-modal { z-index: 100000; }",
         xml: "<div class='list no-hairlines-md'>\
@@ -122,16 +148,21 @@ $_("content").imports({
                 </div></div></div></li></ul>\
               </div>",
         fun: function (sys, items, opts) {
+            let lastValue;
             let picker = app.picker.create({
                 inputEl: sys.input.elem(),
                 rotateEffect: true,
                 toolbarCloseText: "确定",
-                value: ["豆瓣FM"],
-                cols: [{textAlign: 'center', values: ["豆瓣FM","新年歌单"]}],
-                on: { close: p => sys.input.trigger("picker-change") }
+                value: [opts.value],
+                formatValue: (values, displayValues) => {return displayValues[0]},
+                cols: [{textAlign: 'center', values: opts.values, displayValues: opts.displayValues || opts.values}],
+                on: {
+                    opened: p => lastValue = getValue(),
+                    closed: p => lastValue == getValue() || sys.input.trigger("picker-change")
+                }
             });
             function getValue() {
-                return picker.value[0];
+                return picker.getValue()[0];
             }
             function setValue(value) {
                 if (getValue() == value) return;
@@ -164,7 +195,7 @@ $_("content/player").imports({
             let table = { play: "pause", pause: "play", ready: "ready" };
             sys.toggle.on("touchend", "./*[@id]", function () {
                 sys.toggle.trigger("switch", table[this]);
-                sys.toggle.trigger("publish", ["control", {key: "pl-toggle#"}]);
+                sys.toggle.trigger("publish", ["control", {stat: this.toString()}]);
             });
             this.watch("options", (e, data) => {
                 sys.toggle.trigger("switch", table[data.stat]);

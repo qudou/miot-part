@@ -1,6 +1,6 @@
 /*!
  * icon.js v1.0.0
- * https://github.com/qudou/musicbox
+ * https://github.com/qudou/miot-parts
  * (c) 2009-2017 qudou
  * Released under the MIT license
  */

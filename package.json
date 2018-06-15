@@ -1,25 +1,32 @@
 {
   "name": "miot-parts",
   "version": "1.0.0",
-  "description": "miot-parts",
+  "description": "基于树莓派的物联网配件集。",
   "main": "miot-parts.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qudou/miot-parts.git"
   },
   "keywords": [
     "miot-parts"
   ],
   "author": "qudou",
   "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/qudou/miot-parts/issues"
+  },
+  "homepage": "https://github.com/qudou/miot-parts#readme",
   "dependencies": {
-    "log4js": "^2.3.7",
-    "md5": "^2.2.1",
+    "log4js": "^2.5.3",
     "mpg123": "^0.2.3",
-    "mqtt": "^2.12.1",
-    "node-schedule": "^1.2.3",
-    "python-shell": "^0.4.0",
-    "request": "^2.81.0",
-    "sqlite3": "^3.1.13",
-    "xmlplus": "^1.5.12"
+    "mqtt": "^2.17.0",
+    "node-schedule": "^1.3.0",
+    "python-shell": "^0.5.0",
+    "sqlite3": "^4.0.0",
+    "systeminformation": "^3.37.8",
+    "xmlplus": "^1.5.24"
   }
 }

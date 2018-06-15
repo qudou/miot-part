@@ -9,25 +9,25 @@
 # Short-Description: Start/stop miot-parts server
 ### END INIT INFO
 
-DEAMON=/root/miot-parts/miot-parts.js
-LOG=/var/log/miot-parts.log
-PID=/var/run/miot-parts.pid
+DEAMON=/home/pi/miot-parts/miot-parts.js
+LOG=/home/pi/miot-parts/miot-parts.log
+PID=/home/pi/miot-parts/miot-parts.pid
 
 export PATH=$PATH:/usr/local/bin
 export NODE_PATH=$NODE_PATH:/usr/local/lib/node_modules
 
 case "$1" in
  start)
-  forever start -l $LOG --pidFile $PID -a $DEAMON
+  su -c "forever start -l ${LOG} --pidFile ${PID} -a ${DEAMON}" - pi
   ;;
  stop)
-  forever stop --pidFile $PID $DEAMON
+  su -c "forever stop --pidFile ${PID} ${DEAMON}" - pi
   ;;
  restart)
-  forever restart -l $LOG --pidFile $PID -a $DEAMON
+  su -c "forever restart -l ${LOG} --pidFile ${PID} -a ${DEAMON}" - pi
   ;;
   *)
-  echo "Usage: /etc.init.d/node {start|stop|restart}"
+  echo "Usage: /etc.init.d/miot-parts {start|stop|restart}"
   exit 1
   ;;
 esac

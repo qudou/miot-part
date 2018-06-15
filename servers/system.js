@@ -14,6 +14,7 @@ $_().imports({
     Client: {
         xml: "<i:Client id='client' xmlns:i='//miot-parts'>\
                 <Infomation id='info'/>\
+                <Reboot id='reboot'/>\
               </i:Client>"
     },
     Infomation: {
@@ -32,6 +33,15 @@ $_().imports({
                 });
             }
             setInterval(e => this.notify("sysinfo"), 60 * 1000);
+        }
+    },
+    Reboot: {
+        fun: function (sys, items, opts) {
+            let process = require('child_process');
+            this.watch("reboot", () => {
+                process.exec("reboot", err => {err && console.log(err)});
+            });
+            this.on("enter", (e, msg) => this.notify("reboot", msg));
         }
     }
 });

@@ -31,7 +31,7 @@ $_().imports({
         map: { share: "/sqlite/Sqlite" }
     },
     MQTT: {
-        opt: { server: "mqtt://127.0.0.1:1883", clientId: "5971b164-779f-4bfa-a676-16582a77d7e9" },
+        opt: { server: "mqtt://raspberrypi:1883", clientId: "5971b164-779f-4bfa-a676-16582a77d7e9" },
         fun: function (sys, items, opts) {
             let table = this.children().hash();
             let client  = require("mqtt").connect(opts.server, opts);
@@ -79,35 +79,20 @@ $_().imports({
                 change = {};
             }
         }
-    }
-});
-
-$_("parts").imports({
-    Player: {
-        xml: "<Proxy id='player' target='96b2e3ce-917e-4551-98ee-02a0a3a9c93e'/>",
-        fun: function (sys, items, opts) {
-            return items.player;
-        }
-    },
-    Auto: {
-        xml: "<Proxy id='auto' target='445cd2f5-bd07-45c0-9c82-86c0cb3da3b1'/>",
-        fun: function (sys, items, opts) {
-            return items.auto;
-        }
     },
     Proxy: {
         xml: "<Sqlite id='sqlite' xmlns='/sqlite'/>",
         fun: function (sys, items, opts) {
-            function data() {
+            function data(target) {
                 return new Promise(resolve => {
-                    items.sqlite.all(`SELECT * FROM parts WHERE id='${opts.target}'`, (err, rows) => {
+                    items.sqlite.all(`SELECT * FROM parts WHERE id='${target}'`, (err, rows) => {
                         if (err) throw err;
                         resolve(JSON.parse(rows[0].data));
                     });
                 });
             }
-            function publish(topic, data) {
-                sys.sqlite.trigger("#publish", [opts.target, {topic: topic, body: data}]);
+            function publish(topic, target, data) {
+                sys.sqlite.trigger("#publish", [target, {topic: topic, body: data}]);
             }
             return { data: data, publish: publish };
         }

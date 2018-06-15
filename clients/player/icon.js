@@ -1,11 +1,11 @@
 /*!
  * icon.js v1.0.0
- * https://github.com/qudou/musicbox
+ * https://github.com/qudou/miot-parts
  * (c) 2009-2017 qudou
  * Released under the MIT license
  */
 
-xmlplus("10001", (xp, $_, t) => {
+xmlplus("eee825dc-d900-47ab-b98c-b4dc9aed31ae", (xp, $_, t) => {
 
 $_().imports({
     Icon: {

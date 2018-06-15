@@ -1,13 +1,13 @@
 /*!
- * musicbox.js v1.0.0
- * https://github.com/qudou/musicbox
+ * index.js v1.0.0
+ * https://github.com/qudou/miot-parts
  * (c) 2009-2017 qudou
  * Released under the MIT license
  */
 
 xmlplus("26cfb15c-1bb5-11e8-accf-0ed5f89f718b", (xp, $_, t) => {
 
-let app = new Framework7();
+let app = new Framework7({dialog:{buttonOk: '确定', buttonCancel: "取消"}});
 
 $_().imports({
     Client: {
@@ -45,6 +45,7 @@ $_().imports({
                     <div>制造商：<span id='manufacturer'/></div>\
                     <div>品牌：<span id='brand'/></div>\
                     <div>CPU温度：<span id='temp'/></div>\
+                    <Reboot id='reboot'/>\
                 </div>\
               </div>",
         map: { nofragment: true },
@@ -52,6 +53,18 @@ $_().imports({
             this.watch("options", (e, data) => {
                 for(let key in items)
                     data[key] && sys[key].text(data[key]);
+            });
+        }
+    },
+    Reboot: {
+        xml: "<div class='list inset'>\
+                <ul><li><a href='#' class='list-button item-link color-red'>重启</a></li></ul>\
+              </div>",
+        fun: function (sys, items, opts) {
+            this.on("touchend", e => {
+                app.dialog.confirm("确定重启系统吗？", "温馨提示", e => {
+                    this.trigger("publish", ["reboot", {}]);
+                });
             });
         }
     }

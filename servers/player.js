@@ -11,11 +11,10 @@ const log4js = require("log4js");
 const logger = log4js.getLogger("miot-parts");
 
 const ListLength = 300;
-const TimeInterval = 3600 * 1000;
 const Root = `${__dirname}/player`;
 const [Username, Password] = ["17095989603", "139500i"];
 
-const Channels = { "新年歌单": 2101863569 };
+const Channels = { "新年歌单": 2101863569, "轻音乐": 2130515328 };
 
 xmlplus("player", (xp, $_, t) => {
 
@@ -36,24 +35,26 @@ $_().imports({
               </main>"
     },
     Message: {
-        xml: "<Player id='player' xmlns='//miot-parts/parts'/>",
+        xml: "<main id='player'/>",
         fun: function (sys, items, opts) {
-            this.once("enter", (e, message) => {
+            this.once("enter", (e, msg) => {
                 sys.player.watch("stat-change", (e, value) => {
                     if (value == "play")
-                        sys.player.unwatch().notify("pl-vol#", message);
+                        sys.player.unwatch().notify("pl-vol#", msg.vol);
                 });
-                this.notify("pl-channel#", message);
+                this.notify("pl-channel#", msg.channel).notify("pl-interval#", msg.interval);
             });
         }
     },
     Control: {
         fun: function (sys, items, opts) {
-            let set = new Set(
-                ["pl-channel#", "pl-toggle#", "pl-vol#"]
-            );
+            let buf = {};
+            let set = new Set(["channel", "stat", "vol", "interval"]);
             this.on("enter", (e, msg) => {
-                set.has(msg.key) && this.notify("*", [msg.key, msg]);
+                for (let key in msg)
+                  if (set.has(key) && buf[key] != msg[key])
+                     this.notify("*", [`pl-${key}#`, msg[key]]);
+                buf = msg;
             });
         }
     }
@@ -67,8 +68,8 @@ $_("index").imports({
               </main>",
         fun: function (sys, items, opts) {
             let timer, channel, notified = {};
-            this.watch("pl-channel#", (e, msg) => {
-                channel = msg.channel;
+            this.watch("pl-channel#", (e, value) => {
+                channel = value;
                 this.trigger("publish", ["channel", channel]).notify("pl-next#");
             });
             this.watch("pl-next#", async e => {
@@ -124,7 +125,8 @@ $_("index").imports({
                 <i:Database id='database'/>\
                 <NetEase id='netease' xmlns='musicbox'/>\
               </main>",
-        fun: function (sys, items, opts) {
+        fun: async function (sys, items, opts) {
+            let timer;
             let channel = "豆瓣FM";
             let schedule = require("node-schedule");
             schedule.scheduleJob("0 8 * * *", async e => {
@@ -137,8 +139,12 @@ $_("index").imports({
                     return this.notify(await items.database.length(channel) < ListLength ? "download" : "unlink-fm", channel);
                 this.notify("download", channel).notify("unlink-pl", channel);
             });
-            this.watch("channel-change", (e, value) => channel = value)
-            setInterval(e => this.notify("quantity-control"), TimeInterval);
+            this.watch("channel-change", (e, value) => channel = value);
+            this.watch("pl-interval#", (e, value) => {
+                clearInterval(timer);
+                timer = setInterval(e => this.notify("quantity-control"), value * 60 * 1000);
+                this.trigger("publish", ["interval", value]);
+            });
         }
     }
 });
@@ -149,7 +155,6 @@ $_("index/musicbox").imports({
             let stat = "ready";
             let mpg = require("mpg123");
             let player = new mpg.MpgPlayer();
-
             this.watch("pl-pause", (e, d) => {
                 stat == "play" ? player.pause() : this.notify("next");
             });
@@ -164,9 +169,11 @@ $_("index/musicbox").imports({
                 stat = "play";
                 this.notify("next").trigger("publish", ["stat", stat]);
             });
-            this.watch("pl-toggle#", (e, d) => {
+            this.watch("pl-stat#", (e, value) => {
+                clearTimeout(opts.timer);
                 if (stat != "ready")
-                    this.notify("*", stat == "play" ? "pl-pause" : "pl-resume");
+                    return this.notify("*", stat == "play" ? "pl-pause" : "pl-resume");
+                opts.timer = setTimeout(e => this.notify("pl-stat#", value), 5000);
             });
             this.watch("pl-play", (e, d) => {
                 player.play(d.mp3Url);
@@ -176,7 +183,7 @@ $_("index/musicbox").imports({
                 stat = "ready";
                 this.notify("pl-next#").trigger("publish", ["stat", stat]);
             });
-            this.watch("pl-vol#", (e, d) => player.volume(d.vol));
+            this.watch("pl-vol#", (e, value) => player.volume(value));
             player.on("volume", vol => this.trigger("publish", ["vol", vol]));
             player.on("error", err => logger.error(err));
         }
@@ -188,7 +195,8 @@ $_("index/musicbox").imports({
             async function next(channel) {
                 let song = await items.db.random(channel);
                 if (!song) return;
-                return song.id == tmp.id ? next(channel) : (tmp = song);
+                let len = await items.db.length(channel);
+                return song.id == tmp.id && len > 1 ? next(channel) : (tmp = song);
             }
             return { next: next };
         }
@@ -230,6 +238,7 @@ $_("index/schedule").imports({
                 for (let song of songs) {
                     if (await items.db.exist(channel, song.id)) continue;
                     song.mp3Url = (await items.netease.songs_detail_new_api(song.id)).url;
+                    if (await exists(channel, song)) continue;
                     if (song.mp3Url) {
                         download(channel, song); break;
                     }
@@ -244,8 +253,8 @@ $_("index/schedule").imports({
                 let filename = song.mp3Url.split('/').pop();
                 let filePath = `${Root}/${channel}/${filename}`;
                 let download = fs.createWriteStream(filePath);
-                download.once('error', e => logger.error(e));
-                download.once('finish', async e => {
+                download.once("error", e => logger.error(e));
+                download.once("finish", async e => {
                     await items.db.insert(channel, song.id, song.name, filename);
                 });
                 try {
@@ -253,6 +262,13 @@ $_("index/schedule").imports({
                 } catch(err) {
                     logger.error(err);
                 }
+            }
+            function exists(channel, song) {
+                return new Promise((resolve, reject) => {
+                    let filename = song.mp3Url.split('/').pop();
+                    let filePath = `${Root}/${channel}/${filename}`;
+                    fs.exists(filePath, exists => resolve(exists)); 
+                });
             }
         }
     },
