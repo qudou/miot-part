@@ -12,9 +12,7 @@ const logger = log4js.getLogger("miot-parts");
 
 const ListLength = 300;
 const Root = `${__dirname}/player`;
-const [Username, Password] = ["17095989603", "139500i"];
-
-const Channels = { "新年歌单": 2101863569, "轻音乐": 2130515328 };
+const Server = "http://www.xmlplus.cn:8080";
 
 xmlplus("player", (xp, $_, t) => {
 
@@ -25,7 +23,7 @@ $_().imports({
                 <Message id='message'/>\
                 <Control id='control'/>\
               </i:Client>",
-        map: { share: "index/musicbox/NetEase index/schedule/Database sqlite/Sqlite" }
+        map: { share: "index/schedule/Database sqlite/Sqlite" }
     },
     Index: {
         xml: "<main id='index' xmlns:i='index'>\
@@ -123,17 +121,11 @@ $_("index").imports({
                 <i:UnlinkFM id='unlinkFM'/>\
                 <i:UnlinkPL id='unlinkPL'/>\
                 <i:Database id='database'/>\
-                <NetEase id='netease' xmlns='musicbox'/>\
               </main>",
         fun: async function (sys, items, opts) {
             let timer;
             let channel = "豆瓣FM";
             let schedule = require("node-schedule");
-            schedule.scheduleJob("0 8 * * *", async e => {
-                let login = await items.netease.login(Username, Password);
-                if (login.code !== 200)
-                    logger.error(`login error! code: ${login.code}`);
-            });
             this.watch("quantity-control", async () => {
                 if (channel == "豆瓣FM")
                     return this.notify(await items.database.length(channel) < ListLength ? "download" : "unlink-fm", channel);
@@ -170,10 +162,8 @@ $_("index/musicbox").imports({
                 this.notify("next").trigger("publish", ["stat", stat]);
             });
             this.watch("pl-stat#", (e, value) => {
-                clearTimeout(opts.timer);
                 if (stat != "ready")
-                    return this.notify("*", stat == "play" ? "pl-pause" : "pl-resume");
-                opts.timer = setTimeout(e => this.notify("pl-stat#", value), 5000);
+                    this.notify("*", stat == "play" ? "pl-pause" : "pl-resume");
             });
             this.watch("pl-play", (e, d) => {
                 player.play(d.mp3Url);
@@ -200,54 +190,33 @@ $_("index/musicbox").imports({
             }
             return { next: next };
         }
-    },
-    NetEase: {
-        fun: function (sys, items, opts) {
-            let resolve, reject, result = {},
-                PythonShell = require('python-shell'),
-                funList = ["login", "personal_fm", "top_songlist", "songs_detail_new_api", "get_version", "daily_signin", "recommend_playlist", "user_playlist", "playlist_detail", "songs_detail", "channel_detail"];
-            function request(...values) {
-                return new Promise((resolve, reject) => {
-                    let pyshell = new PythonShell("playlist.py", {scriptPath: Root});
-                    pyshell.send(JSON.stringify(values));
-                    pyshell.once('message', message => {
-                        let msg = JSON.parse(message);
-                        resolve(msg == -1 ? null : msg);
-                    });
-                    pyshell.end(err => {err && logger.error(err)});
-                });
-            }
-            funList.forEach(key => {
-                result[key] = async (...values) => {return await request.apply(null, [key].concat(values))};
-            });
-            return result;
-        }
     }
 });
 
 $_("index/schedule").imports({
     Download: {
-        xml: "<main id='download'>\
-                <Database id='db'/>\
-                <NetEase id='netease' xmlns='../musicbox'/>\
-              </main>",
-        fun: async function (sys, items, opts) {
+        xml: "<Database id='db'/>",
+        fun: function (sys, items, opts) {
             let request = require("request");
             this.watch("download", async (e, channel) => {
                 let songs = await songsByChannel(channel);
                 for (let song of songs) {
                     if (await items.db.exist(channel, song.id)) continue;
-                    song.mp3Url = (await items.netease.songs_detail_new_api(song.id)).url;
+                    song.mp3Url = `${Server}/${encodeURIComponent(channel)}/${song.mp3Url}`;
                     if (await exists(channel, song)) continue;
                     if (song.mp3Url) {
                         download(channel, song); break;
                     }
                 }
             });
-            async function songsByChannel(channel) {
-                if (Channels[channel])
-                    return await items.netease.playlist_detail(Channels[channel]) || [];
-                return await items.netease.personal_fm() || [];
+            function songsByChannel(channel) {
+                return new Promise((resolve, reject) => {
+                    request(`${Server}/songlist/${encodeURIComponent(channel)}`, (error, response, body) => {
+                       if ( error || response.statusCode !== 200 )
+                            return resolve([]);
+                       resolve(JSON.parse(body));
+                    });
+                });                
             }
             function download(channel, song) {
                 let filename = song.mp3Url.split('/').pop();
@@ -285,22 +254,29 @@ $_("index/schedule").imports({
         }
     },
     UnlinkPL: {
-        xml: "<main id='download'>\
-                <Database id='db'/>\
-                <NetEase id='netease' xmlns='../musicbox'/>\
-              </main>",
+        xml: "<Database id='db'/>",
         fun: function (sys, items, opts) {
             let current = {id: undefined};
+            let request = require("request");
             this.watch("unlink-pl", async (e, channel) => {
                 let canRemove = true;
                 let song = await items.db.random(channel);
                 if (song == null || song.id == current.id) return;
-                let songs = await items.netease.playlist_detail(Channels[channel]) || [];
+                let songs = await songsByChannel(channel) || [];
                 for (let item of songs)
                     if (item.id == song.id)
                         canRemove = false;
                 songs.length && canRemove && await items.db.unlink(channel, song);
             });
+            function songsByChannel(channel) {
+                return new Promise((resolve, reject) => {
+                    request(`${Server}/${encodeURIComponent(channel)}`, (error, response, body) => {
+                       if ( error || response.statusCode !== 200 )
+                            return resolve([]);
+                       reslove(JSON.parse(body));
+                    });
+                });                
+            }
             this.watch("song-change", (e, value) => current = value);
         }
     },
