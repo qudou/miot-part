@@ -110,7 +110,7 @@ $_("content").imports({
     },
     Channel: {
         xml: "<Picker id='channel'/>",
-        cfg: {channel: { value: "豆瓣FM", values: ["豆瓣FM","轻音乐","新年歌单"]}},
+        cfg: {channel: { value: "豆瓣FM", values: ["豆瓣FM","轻音乐","新年歌单","云音乐热歌榜"]}},
         fun: function (sys, items, opts) {
             sys.channel.on("picker-change", e => {
                 clearTimeout(opts.timer);
