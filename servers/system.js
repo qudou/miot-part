@@ -37,7 +37,7 @@ $_().imports({
     },
     Reboot: {
         fun: function (sys, items, opts) {
-            let process = require('child_process');
+            let process = require("child_process");
             this.watch("reboot", () => {
                 process.exec("sudo reboot", err => {err && console.log(err)});
             });

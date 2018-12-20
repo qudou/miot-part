@@ -28,7 +28,7 @@ $_().imports({
                 <Client id='445cd2f5-bd07-45c0-9c82-86c0cb3da3b1' xmlns='//auto'/>\
                 <Client id='2ce3d22e-1bb2-11e8-accf-0ed5f89f718b' xmlns='//system'/>\
               </MQTT>",
-        map: { share: "/sqlite/Sqlite" }
+        map: { share: "Sqlite" }
     },
     MQTT: {
         opt: { server: "mqtt://raspberrypi:1883", clientId: "5971b164-779f-4bfa-a676-16582a77d7e9" },
@@ -44,11 +44,13 @@ $_().imports({
                 if (table[topic])
                     table[topic].trigger("enter", msg, false);
             });
+            // 此 $publish 用于局域网内配件与视图端之间的通信
             this.on("$publish", "./*[@id]", function (e, msg) {
                 e.stopPropagation();
                 msg.ssid = this.toString();
                 client.publish("to-gateway", JSON.stringify(msg), {qos:1,retain: true});
             });
+            // 此 #publish 用于局域网内配件之间的通信
             this.on("#publish", "./*[@id]", function (e, topic, msg) {
                 e.stopPropagation();
                 msg.ssid = this.toString();
@@ -81,7 +83,7 @@ $_().imports({
         }
     },
     Proxy: {
-        xml: "<Sqlite id='sqlite' xmlns='/sqlite'/>",
+        xml: "<Sqlite id='sqlite'/>",
         fun: function (sys, items, opts) {
             function data(target) {
                 return new Promise(resolve => {
@@ -96,10 +98,7 @@ $_().imports({
             }
             return { data: data, publish: publish };
         }
-    }
-});
-
-$_("sqlite").imports({
+    },
     Sqlite: {
         fun: function (sys, items, opts) {
             let sqlite = require("sqlite3").verbose(),
@@ -108,18 +107,8 @@ $_("sqlite").imports({
             db.exec("PRAGMA foreign_keys = ON");
             return db;
         }
-    },
-    Prepare: {
-        fun: function (sys, items, opts) {
-            return stmt => {
-                let args = [].slice.call(arguments).slice(1);
-                args.forEach(item => {
-                    stmt = stmt.replace("?", typeof item == "string" ? '"' + item + '"' : item);
-                });
-                return stmt;
-            };
-        }
     }
 });
+
 
 }).startup("//miot-parts/Index");

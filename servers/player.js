@@ -10,7 +10,6 @@ const xmlplus = require("xmlplus");
 const log4js = require("log4js");
 const logger = log4js.getLogger("miot-parts");
 
-const ListLength = 300;
 const Root = `${__dirname}/player`;
 const Server = "http://www.xmlplus.cn:8080";
 
@@ -23,7 +22,7 @@ $_().imports({
                 <Message id='message'/>\
                 <Control id='control'/>\
               </i:Client>",
-        map: { share: "index/schedule/Database sqlite/Sqlite" }
+        map: { share: "index/schedule/Database" }
     },
     Index: {
         xml: "<main id='index' xmlns:i='index'>\
@@ -118,17 +117,14 @@ $_("index").imports({
     Schedule: {
         xml: "<main id='schedule' xmlns:i='schedule'>\
                 <i:Download id='download'/>\
-                <i:UnlinkFM id='unlinkFM'/>\
                 <i:UnlinkPL id='unlinkPL'/>\
                 <i:Database id='database'/>\
               </main>",
         fun: async function (sys, items, opts) {
             let timer;
-            let channel = "豆瓣FM";
+            let channel = "云音乐热歌榜";
             let schedule = require("node-schedule");
-            this.watch("quantity-control", async () => {
-                if (channel == "豆瓣FM")
-                    return this.notify(await items.database.length(channel) < ListLength ? "download" : "unlink-fm", channel);
+            this.watch("quantity-control", () => {
                 this.notify("download", channel).notify("unlink-pl", channel);
             });
             this.watch("channel-change", (e, value) => channel = value);
@@ -241,18 +237,6 @@ $_("index/schedule").imports({
             }
         }
     },
-    UnlinkFM: {
-        xml: "<Database id='db'/>",
-        fun: function (sys, items, opts) {
-            let current = {id: undefined};
-            this.watch("unlink-fm", async (e, channel) => {
-                let song = await items.db.last(channel);
-                if (song == null || song.id == current.id) return;
-                await items.db.unlink(channel, song);
-            });
-            this.watch("song-change", (e, value) => current = value);
-        }
-    },
     UnlinkPL: {
         xml: "<Database id='db'/>",
         fun: function (sys, items, opts) {
@@ -281,7 +265,7 @@ $_("index/schedule").imports({
         }
     },
     Database: {
-        xml: "<Sqlite id='sqlite' xmlns='/sqlite'/>",
+        xml: "<Sqlite id='sqlite'/>",
         fun: function (sys, items, opts) {
             function exist(channel, songId) {
                 return new Promise((resolve, reject) => {
@@ -342,10 +326,7 @@ $_("index/schedule").imports({
             }
             return { exist: exist, length: length, insert: insert, unlink: unlink, last: last, random: random };
         }
-    }
-});
-
-$_("sqlite").imports({
+    },
     Sqlite: {
         fun: function (sys, items, opts) {
             let sqlite = require("sqlite3").verbose(),
@@ -353,17 +334,6 @@ $_("sqlite").imports({
 			db.exec("VACUUM");
             db.exec("PRAGMA foreign_keys = ON");
             return db;
-        }
-    },
-    Prepare: {
-        fun: function (sys, items, opts) {
-            return stmt => {
-                let args = [].slice.call(arguments).slice(1);
-                args.forEach(item => {
-                    stmt = stmt.replace("?", typeof item == "string" ? '"' + item + '"' : item);
-                });
-                return stmt;
-            };
         }
     }
 });
