@@ -45,6 +45,7 @@ $_().imports({
                     <div>制造商：<span id='manufacturer'/></div>\
                     <div>品牌：<span id='brand'/></div>\
                     <div>CPU温度：<span id='temp'/></div>\
+                    <div>磁盘空间：<span id='diskspace'/></div>\
                     <Reboot id='reboot'/>\
                 </div>\
               </div>",
