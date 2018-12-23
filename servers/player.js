@@ -22,7 +22,7 @@ $_().imports({
                 <Message id='message'/>\
                 <Control id='control'/>\
               </i:Client>",
-        map: { share: "index/schedule/Database" }
+        map: { share: "index/schedule/Database index/schedule/Sqlite" }
     },
     Index: {
         xml: "<main id='index' xmlns:i='index'>\
@@ -117,22 +117,21 @@ $_("index").imports({
     Schedule: {
         xml: "<main id='schedule' xmlns:i='schedule'>\
                 <i:Download id='download'/>\
-                <i:UnlinkPL id='unlinkPL'/>\
+                <i:Unlink id='unlink'/>\
                 <i:Database id='database'/>\
               </main>",
         fun: async function (sys, items, opts) {
             let timer;
             let channel = "云音乐热歌榜";
             let schedule = require("node-schedule");
-            this.watch("quantity-control", () => {
-                this.notify("download", channel).notify("unlink-pl", channel);
-            });
             this.watch("channel-change", (e, value) => channel = value);
             this.watch("pl-interval#", (e, value) => {
                 clearInterval(timer);
                 timer = setInterval(e => this.notify("quantity-control"), value * 60 * 1000);
                 this.trigger("publish", ["interval", value]);
             });
+            this.watch("quantity-control", () => this.notify("download", channel));
+            setInterval(() => sys.unlink.notify("unlink", channel), 24 * 60 * 60 * 1000);
         }
     }
 });
@@ -237,20 +236,24 @@ $_("index/schedule").imports({
             }
         }
     },
-    UnlinkPL: {
-        xml: "<Database id='db'/>",
+    Unlink: {
+        xml: "<main id='unlink'>\
+                <Database id='db'/>\
+                <Sqlite id='sqlite'/>\
+              </main>",
         fun: function (sys, items, opts) {
             let current = {id: undefined};
             let request = require("request");
-            this.watch("unlink-pl", async (e, channel) => {
-                let canRemove = true;
-                let song = await items.db.random(channel);
-                if (song == null || song.id == current.id) return;
+            this.watch("unlink", async (e, channel) => {
+                let arr = [];
                 let songs = await songsByChannel(channel) || [];
                 for (let item of songs)
-                    if (item.id == song.id)
-                        canRemove = false;
-                songs.length && canRemove && await items.db.unlink(channel, song);
+                    arr.push(item.id);
+                let stmt = `SELECT * FROM ${channel} WHERE id NOT IN (${arr.join(',')}) AND id <> ${current.id}`;
+                items.sqlite.all(stmt, (err, data) => {
+                    if (err) throw err;
+                    data.forEach(item => items.db.unlink(channel, item));;
+                });
             });
             function songsByChannel(channel) {
                 return new Promise((resolve, reject) => {
@@ -259,7 +262,7 @@ $_("index/schedule").imports({
                             return resolve([]);
                        reslove(JSON.parse(body));
                     });
-                });                
+                });
             }
             this.watch("song-change", (e, value) => current = value);
         }
