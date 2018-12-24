@@ -39,8 +39,9 @@ $_().imports({
                     if (value == "play")
                         sys.player.unwatch().notify("pl-vol#", msg.vol);
                 });
+                this.notify("pl-channel#", msg.channel);
                 this.notify("pl-interval#", msg.interval);
-                msg.stat != "pause" && this.notify("pl-channel#", msg.channel);
+                msg.stat != "pause" && this.notify("pl-next#");
             });
         }
     },
@@ -50,8 +51,10 @@ $_().imports({
             let set = new Set(["channel", "stat", "vol", "interval"]);
             this.on("enter", (e, msg) => {
                 for (let key in msg)
-                  if (set.has(key) && buf[key] != msg[key])
-                     this.notify("*", [`pl-${key}#`, msg[key]]);
+                    if (set.has(key) && buf[key] != msg[key]) {
+                        this.notify("*", [`pl-${key}#`, msg[key]]);
+                        key == "channel" && this.notify("pl-next#");
+                    }
                 buf = msg;
             });
         }
@@ -68,7 +71,7 @@ $_("index").imports({
             let timer, channel, notified = {};
             this.watch("pl-channel#", (e, value) => {
                 channel = value;
-                this.trigger("publish", ["channel", channel]).notify("pl-next#");
+                this.trigger("publish", ["channel", channel]);
             });
             this.watch("pl-next#", async e => {
                 let ch = channel;
