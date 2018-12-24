@@ -39,7 +39,8 @@ $_().imports({
                     if (value == "play")
                         sys.player.unwatch().notify("pl-vol#", msg.vol);
                 });
-                this.notify("pl-channel#", msg.channel).notify("pl-interval#", msg.interval);
+                this.notify("pl-interval#", msg.interval);
+                msg.stat != "pause" && this.notify("pl-channel#", msg.channel);
             });
         }
     },
