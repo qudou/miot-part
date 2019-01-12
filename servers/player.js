@@ -39,22 +39,18 @@ $_().imports({
                     if (value == "play")
                         sys.player.unwatch().notify("pl-vol#", msg.vol);
                 });
-                this.notify("pl-channel#", msg.channel);
-                this.notify("pl-interval#", msg.interval);
-                msg.stat != "pause" && this.notify("pl-next#");
+                this.notify("pl-channel#", msg.channel).notify("pl-interval#", msg.interval);
             });
         }
     },
     Control: {
         fun: function (sys, items, opts) {
             let buf = {};
-            let set = new Set(["channel", "stat", "vol", "interval"]);
+            let set = new Set(["channel", "stat", "next", "vol", "interval"]);
             this.on("enter", (e, msg) => {
                 for (let key in msg)
-                    if (set.has(key) && buf[key] != msg[key]) {
-                        this.notify("*", [`pl-${key}#`, msg[key]]);
-                        key == "channel" && this.notify("pl-next#");
-                    }
+                  if (set.has(key) && buf[key] != msg[key])
+                     this.notify("*", [`pl-${key}#`, msg[key]]);
                 buf = msg;
             });
         }
@@ -71,7 +67,7 @@ $_("index").imports({
             let timer, channel, notified = {};
             this.watch("pl-channel#", (e, value) => {
                 channel = value;
-                this.trigger("publish", ["channel", channel]);
+                this.trigger("publish", ["channel", channel]).notify("pl-next#");
             });
             this.watch("pl-next#", async e => {
                 let ch = channel;
@@ -135,7 +131,7 @@ $_("index").imports({
                 this.trigger("publish", ["interval", value]);
             });
             this.watch("quantity-control", () => this.notify("download", channel));
-            setInterval(() => sys.unlink.notify("unlink", channel), 24 * 60 * 60 * 1000);
+            schedule.scheduleJob("0 8 * * 1", () => this.notify("unlink", channel));
         }
     }
 });
@@ -251,6 +247,7 @@ $_("index/schedule").imports({
             this.watch("unlink", async (e, channel) => {
                 let arr = [];
                 let songs = await songsByChannel(channel) || [];
+                if (songs.length == 0) return;
                 for (let item of songs)
                     arr.push(item.id);
                 let stmt = `SELECT * FROM ${channel} WHERE id NOT IN (${arr.join(',')}) AND id <> ${current.id}`;
@@ -261,10 +258,12 @@ $_("index/schedule").imports({
             });
             function songsByChannel(channel) {
                 return new Promise((resolve, reject) => {
-                    request(`${Server}/${encodeURIComponent(channel)}`, (error, response, body) => {
-                       if ( error || response.statusCode !== 200 )
-                            return resolve([]);
-                       reslove(JSON.parse(body));
+                    request(`${Server}/songlist/${encodeURIComponent(channel)}`, (error, response, body) => {
+                       if ( error || response.statusCode !== 200 ) {
+                           logger.error("获取播放列表时出错！");
+                           return resolve([]);
+                       }
+                       resolve(JSON.parse(body));
                     });
                 });
             }
