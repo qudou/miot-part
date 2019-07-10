@@ -5,12 +5,9 @@
  * Released under the MIT license
  */
 
-require("./servers/player.js");
-require("./servers/auto.js");
-require("./servers/system.js");
-
 const xmlplus = require("xmlplus");
 const MiotRoot = `${__dirname}/../miot-local/`;
+const Link = "5971b164-779f-4bfa-a676-16582a77d7e9";
 
 const log4js = require("log4js");
 log4js.configure({
@@ -24,26 +21,26 @@ xmlplus("miot-parts", (xp, $_, t) => {
 $_().imports({
     Index: {
         xml: "<MQTT id='mqtt'>\
-                <Client id='96b2e3ce-917e-4551-98ee-02a0a3a9c93e' xmlns='//player'/>\
-                <Client id='445cd2f5-bd07-45c0-9c82-86c0cb3da3b1' xmlns='//auto'/>\
-                <Client id='2ce3d22e-1bb2-11e8-accf-0ed5f89f718b' xmlns='//system'/>\
+                <Sqlite id='sqlite'/>\
               </MQTT>",
-        map: { share: "Sqlite" }
+        map: { share: "Sqlite" },
+        fun: async function (sys, items, opts) {
+            items.sqlite.all(`SELECT * FROM parts`, (err, rows) => {
+                if (err) throw err;
+                rows.forEach(part => {
+                    if (part.link != Link) return;
+                    require(`./servers/${part.name}.js`);
+                    sys.mqtt.append(`<Client id='${part.id}' xmlns='//${part.name}'/>`);
+                });
+                items.mqtt.init();
+            });
+        }
     },
     MQTT: {
         opt: { server: "mqtt://raspberrypi:1883", clientId: "5971b164-779f-4bfa-a676-16582a77d7e9" },
         fun: function (sys, items, opts) {
-            let table = this.children().hash();
-            let client  = require("mqtt").connect(opts.server, opts);
-            client.on("connect", e => {
-                Object.keys(table).forEach(partId => client.subscribe(partId));
-                console.log("connected to " + opts.server);
-                logger.info("connected to " + opts.server);
-            });
-            client.on("message", (topic, msg) => {
-                if (table[topic])
-                    table[topic].trigger("enter", msg, false);
-            });
+            let client;
+            const that = this;
             // 此 $publish 用于局域网内配件与视图端之间的通信
             this.on("$publish", "./*[@id]", function (e, msg) {
                 e.stopPropagation();
@@ -56,6 +53,21 @@ $_().imports({
                 msg.ssid = this.toString();
                 client.publish(topic, JSON.stringify(msg), {qos:1,retain: true});
             });
+            function init() {
+                let table = that.children().hash();
+                delete table.sqlite;
+                client  = require("mqtt").connect(opts.server, opts);
+                client.on("connect", e => {
+                    Object.keys(table).forEach(partId => client.subscribe(partId));
+                    console.log("connected to " + opts.server);
+                    logger.info("connected to " + opts.server);
+                });
+                client.on("message", (topic, msg) => {
+                    if (table[topic])
+                        table[topic].trigger("enter", msg, false);
+                });
+            }
+            return { init: init };
         }
     },
     Client: {
