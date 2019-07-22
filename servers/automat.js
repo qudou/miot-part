@@ -22,6 +22,7 @@ $_().imports({
               </main>",
         fun: function (sys, items, opts) {
             this.watch("drop-goods", (e, v) => {
+                //console.log(v);
                 let datain = items.command(v.ln, v.col);
                 items.serialPort.write(datain);
             });
@@ -70,6 +71,7 @@ $_().imports({
             function onData(data) {
                 buffer = Buffer.concat([buffer, data]);
                 data = buffer.toString('hex');
+                //console.log(data);
                 data.length == 46 && complete(data.substr(40, 2));
             }
             function complete(data) {
