@@ -7,7 +7,7 @@
 
 const xmlplus = require("xmlplus");
 
-xmlplus("automat", (xp, $_, t) => {
+xmlplus("064c1f7f-f10a-4682-b618-5ddf25dcc6cb", (xp, $_, t) => {
 
 $_().imports({
     Client: {

@@ -10,10 +10,9 @@ const xmlplus = require("xmlplus");
 const log4js = require("log4js");
 const logger = log4js.getLogger("miot-parts");
 
-const Root = `${__dirname}/player`;
 const Server = "http://www.xmlplus.cn:8080";
 
-xmlplus("player", (xp, $_, t) => {
+xmlplus("96b2e3ce-917e-4551-98ee-02a0a3a9c93e", (xp, $_, t) => {
 
 $_().imports({
     Client: {
@@ -22,7 +21,15 @@ $_().imports({
                 <Message id='message'/>\
                 <Control id='control'/>\
               </i:Client>",
-        map: { share: "index/schedule/Database index/schedule/Sqlite" }
+        map: { share: "index/schedule/Database index/schedule/Sqlite" },
+        fun: function (sys, items, opts) {
+            this.watch("publish", (e, key, value) => {
+                let o = {};
+                o[key] = value;
+                this.trigger("to-user", ["data-change", o]);
+                this.notify(`${key}-change`, [value]);
+            });
+        }
     },
     Index: {
         xml: "<main id='index' xmlns:i='index'>\
@@ -67,14 +74,14 @@ $_("index").imports({
             let timer, channel, notified = {};
             this.watch("pl-channel#", (e, value) => {
                 channel = value;
-                this.trigger("publish", ["channel", channel]).notify("pl-next#");
+                this.notify("publish", ["channel", channel]).notify("pl-next#");
             });
             this.watch("pl-next#", async e => {
                 let ch = channel;
                 let d = {song: await items.songlist.next(ch)};
                 clearTimeout(timer);
                 if (d.song) {
-                    d.mp3Url = `${Root}/${ch}/${d.song.mp3Url}`
+                    d.mp3Url = `${__dirname}/${ch}/${d.song.mp3Url}`
                     return this.notify("*", ["pl-pause pl-play", d]);
                 }
                 timer = setTimeout(e => this.notify("pl-next#"), 300 * 1000);
@@ -128,7 +135,7 @@ $_("index").imports({
             this.watch("pl-interval#", (e, value) => {
                 clearInterval(timer);
                 timer = setInterval(e => this.notify("quantity-control"), value * 60 * 1000);
-                this.trigger("publish", ["interval", value]);
+                this.notify("publish", ["interval", value]);
             });
             this.watch("quantity-control", () => this.notify("download", channel));
             schedule.scheduleJob("0 8 * * 1", () => this.notify("unlink", channel));
@@ -147,14 +154,14 @@ $_("index/musicbox").imports({
             });
             player.on("pause", e => {
                 stat = "pause";
-                this.notify("next").trigger("publish", ["stat", stat]);
+                this.notify("next").notify("publish", ["stat", stat]);
             });
             this.watch("pl-resume", (e, d) => {
                 stat == "pause" ? player.pause() : this.notify("next");
             });
             player.on("resume", e => {
                 stat = "play";
-                this.notify("next").trigger("publish", ["stat", stat]);
+                this.notify("next").notify("publish", ["stat", stat]);
             });
             this.watch("pl-stat#", (e, value) => {
                 if (stat != "ready")
@@ -162,14 +169,14 @@ $_("index/musicbox").imports({
             });
             this.watch("pl-play", (e, d) => {
                 player.play(d.mp3Url);
-                this.trigger("publish", ["song", d.song]);
+                this.notify("publish", ["song", d.song]);
             });
             player.on("end", e => {
                 stat = "ready";
-                this.notify("pl-next#").trigger("publish", ["stat", stat]);
+                this.notify("pl-next#").notify("publish", ["stat", stat]);
             });
             this.watch("pl-vol#", (e, value) => player.volume(value));
-            player.on("volume", vol => this.trigger("publish", ["vol", vol]));
+            player.on("volume", vol => this.notify("publish", ["vol", vol]));
             player.on("error", err => logger.error(err));
         }
     },
@@ -215,7 +222,7 @@ $_("index/schedule").imports({
             }
             function download(channel, song) {
                 let filename = song.mp3Url.split('/').pop();
-                let filePath = `${Root}/${channel}/${filename}`;
+                let filePath = `${__dirname}/${channel}/${filename}`;
                 let download = fs.createWriteStream(filePath);
                 download.once("error", e => logger.error(e));
                 download.once("finish", async e => {
@@ -230,7 +237,7 @@ $_("index/schedule").imports({
             function exists(channel, song) {
                 return new Promise((resolve, reject) => {
                     let filename = song.mp3Url.split('/').pop();
-                    let filePath = `${Root}/${channel}/${filename}`;
+                    let filePath = `${__dirname}/${channel}/${filename}`;
                     fs.exists(filePath, exists => resolve(exists)); 
                 });
             }
@@ -305,7 +312,7 @@ $_("index/schedule").imports({
                     let stmt = items.sqlite.prepare(`DELETE FROM ${channel} WHERE id = ${song.id}`);
                     stmt.run(err => {
                         if (err) throw err;
-                        fs.unlink(`${Root}/${channel}/${song.mp3Url}`, err => {
+                        fs.unlink(`${__dirname}/${channel}/${song.mp3Url}`, err => {
                             if (err) throw err;
                             resolve(true);
                         });
@@ -336,7 +343,7 @@ $_("index/schedule").imports({
     Sqlite: {
         fun: function (sys, items, opts) {
             let sqlite = require("sqlite3").verbose(),
-                db = new sqlite.Database(`${Root}/data.db`);
+                db = new sqlite.Database(`${__dirname}/data.db`);
 			db.exec("VACUUM");
             db.exec("PRAGMA foreign_keys = ON");
             return db;

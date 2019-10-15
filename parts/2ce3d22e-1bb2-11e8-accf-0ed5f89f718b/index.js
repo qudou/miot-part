@@ -8,13 +8,14 @@
 const xmlplus = require("xmlplus");
 const schedule = require("node-schedule");
 
-xmlplus("system", (xp, $_, t) => {
+xmlplus("2ce3d22e-1bb2-11e8-accf-0ed5f89f718b", (xp, $_) => {
 
 $_().imports({
     Client: {
         xml: "<i:Client id='client' xmlns:i='//miot-parts'>\
                 <Infomation id='info'/>\
                 <Reboot id='reboot'/>\
+                <ShutDown id='shutdown'/>\
               </i:Client>"
     },
     Infomation: {
@@ -23,12 +24,14 @@ $_().imports({
             let spawn = require('child_process').spawn;
             let checkDiskSpace = require('check-disk-space');
             let schedule = require("node-schedule");
+            let ip = require("ip");
             this.watch("sysinfo", async e => {
                 let sysinfo = await si.cpu();
                 sysinfo.dateTime = (new Date).toLocaleString();
                 sysinfo.temp = await temp();
                 sysinfo.diskspace = await diskspace();
-                this.trigger("publish", sysinfo);
+                sysinfo.ip = ip.address();
+                this.trigger("to-user", ["data-change", sysinfo]);
             });
             function temp() {
                 return new Promise((resolve, reject) => {
@@ -55,6 +58,15 @@ $_().imports({
                 process.exec("sudo reboot", err => {err && console.log(err)});
             });
             this.on("enter", (e, msg) => this.notify("reboot", msg));
+        }
+    },
+    ShutDown: {
+        fun: function (sys, items, opts) {
+            let process = require("child_process");
+            this.watch("shutdown", () => {
+                process.exec("sudo halt", err => {err && console.log(err)});
+            });
+            this.on("enter", (e, msg) => this.notify("shutdown", msg));
         }
     }
 });

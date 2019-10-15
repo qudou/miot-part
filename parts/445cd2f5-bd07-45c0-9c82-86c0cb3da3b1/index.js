@@ -8,7 +8,7 @@
 const xmlplus = require("xmlplus");
 const schedule = require("node-schedule");
 
-xmlplus("auto", (xp, $_, t) => {
+xmlplus("445cd2f5-bd07-45c0-9c82-86c0cb3da3b1", (xp, $_, t) => {
 
 $_().imports({
     Client: {
@@ -23,19 +23,20 @@ $_().imports({
         }
     },
     Schedule: {
-        xml: "<Proxy id='proxy' xmlns='//miot-parts'/>",
+        xml: "<main id='schedule'/>",
         fun: function (sys, items, opts) {
             let jobs = [];
             this.watch("sh-schedule#", (e, d) => {
                 jobs.forEach(job => job.cancel());
                 jobs.splice(0);
                 d.schedule.forEach(item => jobs.push(make(item)));
-                this.trigger("publish", ["schedule", d.schedule]);
+                this.trigger("to-user", ["data-change", {schedule: d.schedule}]);
             });
             function make(item) {
                 let p = item.pattern.split(':');
                 return schedule.scheduleJob(`${p[1]} ${p[0]} * * *`, e => {
-                    items.proxy.publish("control", item.target, item.body);
+                    let payload = {topic: "control", body: item.body};
+                    sys.schedule.trigger("to-part", [item.target, payload]);
                 });
             }
             this.on("enter", (e, msg) => this.notify("sh-schedule#", msg));

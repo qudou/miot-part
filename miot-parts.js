@@ -16,7 +16,7 @@ log4js.configure({
 });
 const logger = log4js.getLogger('miot-parts');
 
-xmlplus("miot-parts", (xp, $_, t) => {
+xmlplus("miot-parts", (xp, $_) => {
 
 $_().imports({
     Index: {
@@ -29,8 +29,8 @@ $_().imports({
                 if (err) throw err;
                 rows.forEach(part => {
                     if (part.link != Link) return;
-                    require(`./servers/${part.name}.js`);
-                    sys.mqtt.append(`<Client id='${part.id}' xmlns='//${part.name}'/>`);
+                    require(`./parts/${part.id}/index.js`);
+                    sys.mqtt.append(`<Client id='${part.id}' xmlns='//${part.id}'/>`);
                 });
                 items.mqtt.init();
             });
@@ -41,17 +41,17 @@ $_().imports({
         fun: function (sys, items, opts) {
             let client;
             const that = this;
-            // 此 $publish 用于局域网内配件与视图端之间的通信
-            this.on("$publish", "./*[@id]", function (e, msg) {
+            // 此 to-user 用于局域网内配件与视图端之间的通信
+            this.on("to-user", "./*[@id]", function (e, topic, data) {
                 e.stopPropagation();
-                msg.ssid = this.toString();
-                client.publish("to-gateway", JSON.stringify(msg), {qos:1,retain: true});
+                let payload = {topic: topic, pid: this.toString(), data: data };
+                client.publish("to-gateway", JSON.stringify(payload), {qos:1,retain: true});
             });
-            // 此 #publish 用于局域网内配件之间的通信
-            this.on("#publish", "./*[@id]", function (e, topic, msg) {
+            // 此 to-part 用于局域网内配件之间的通信
+            this.on("to-part", "./*[@id]", function (e, target, payload) {
                 e.stopPropagation();
-                msg.ssid = this.toString();
-                client.publish(topic, JSON.stringify(msg), {qos:1,retain: true});
+                payload.pid = this.toString();
+                client.publish(target, JSON.stringify(payload), {qos:1,retain: true});
             });
             function init() {
                 let table = that.children().hash();
@@ -73,42 +73,13 @@ $_().imports({
     Client: {
         map: { msgscope: true },
         fun: function (sys, items, opts) {
-            let change = {}, timer;
             let table = this.children().hash();
             this.on("enter", (e, msg) => {
                 msg = JSON.parse(msg);
-                if (table[msg.topic])
+                if (table[msg.topic]) {
                     table[msg.topic].trigger("enter", msg.body, false);
+                }
             });
-            this.on("publish", "./*[@id]", function (e, key, value) {
-                e.stopPropagation();
-                let isKey = typeof key == "string";
-                isKey ? (change[key] = value) : xp.extend(change, key);
-                clearTimeout(timer);
-                timer = setTimeout(e => dispatch(this), 300);
-                isKey && this.notify(`${key}-change`, [value]);
-            });
-            function dispatch(that) {
-                that.trigger("$publish", {topic: that + '', data: change});
-                change = {};
-            }
-        }
-    },
-    Proxy: {
-        xml: "<Sqlite id='sqlite'/>",
-        fun: function (sys, items, opts) {
-            function data(target) {
-                return new Promise(resolve => {
-                    items.sqlite.all(`SELECT * FROM parts WHERE id='${target}'`, (err, rows) => {
-                        if (err) throw err;
-                        resolve(JSON.parse(rows[0].data));
-                    });
-                });
-            }
-            function publish(topic, target, data) {
-                sys.sqlite.trigger("#publish", [target, {topic: topic, body: data}]);
-            }
-            return { data: data, publish: publish };
         }
     },
     Sqlite: {
