@@ -8,15 +8,15 @@
 const xmlplus = require("xmlplus");
 const schedule = require("node-schedule");
 
-xmlplus("2ce3d22e-1bb2-11e8-accf-0ed5f89f718b", (xp, $_) => {
+xmlplus("26cfb15c-1bb5-11e8-accf-0ed5f89f718b", (xp, $_) => {
 
 $_().imports({
-    Client: {
-        xml: "<i:Client id='client' xmlns:i='//miot-parts'>\
-                <Infomation id='info'/>\
+    Index: {
+        xml: "<main id='index'>\
+                <Infomation id='sysinfo'/>\
                 <Reboot id='reboot'/>\
                 <ShutDown id='shutdown'/>\
-              </i:Client>"
+              </main>"
     },
     Infomation: {
         fun: function (sys, items, opts) {
@@ -54,19 +54,17 @@ $_().imports({
     Reboot: {
         fun: function (sys, items, opts) {
             let process = require("child_process");
-            this.watch("reboot", () => {
+            this.watch("reboot", (e, msg) => {
                 process.exec("sudo reboot", err => {err && console.log(err)});
             });
-            this.on("enter", (e, msg) => this.notify("reboot", msg));
         }
     },
     ShutDown: {
         fun: function (sys, items, opts) {
             let process = require("child_process");
-            this.watch("shutdown", () => {
+            this.watch("shutdown", (e, msg) => {
                 process.exec("sudo halt", err => {err && console.log(err)});
             });
-            this.on("enter", (e, msg) => this.notify("shutdown", msg));
         }
     }
 });

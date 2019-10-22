@@ -8,18 +8,18 @@
 const xmlplus = require("xmlplus");
 const schedule = require("node-schedule");
 
-xmlplus("445cd2f5-bd07-45c0-9c82-86c0cb3da3b1", (xp, $_, t) => {
+xmlplus("c135d42e-2bc4-4a06-9f9e-054adf44a35d", (xp, $_, t) => {
 
 $_().imports({
-    Client: {
-        xml: "<i:Client id='client' xmlns:i='//miot-parts'>\
+    Index: {
+        xml: "<main id='index'>\
                 <Schedule id='schedule'/>\
                 <Message id='message'/>\
-              </i:Client>"
+              </main>"
     },
     Message: {
         fun: function (sys, items, opts) {
-            this.once("enter", (e, msg) => this.notify("sh-schedule#", msg));
+            this.glance("message", (e, msg) => this.notify("sh-schedule#", msg));
         }
     },
     Schedule: {
@@ -39,7 +39,7 @@ $_().imports({
                     sys.schedule.trigger("to-part", [item.target, payload]);
                 });
             }
-            this.on("enter", (e, msg) => this.notify("sh-schedule#", msg));
+            this.watch("schedule", (e, msg) => this.notify("sh-schedule#", msg));
         }
     }
 });

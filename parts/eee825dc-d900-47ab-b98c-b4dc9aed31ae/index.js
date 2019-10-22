@@ -12,15 +12,15 @@ const logger = log4js.getLogger("miot-parts");
 
 const Server = "http://www.xmlplus.cn:8080";
 
-xmlplus("96b2e3ce-917e-4551-98ee-02a0a3a9c93e", (xp, $_, t) => {
+xmlplus("eee825dc-d900-47ab-b98c-b4dc9aed31ae", (xp, $_, t) => {
 
 $_().imports({
-    Client: {
-        xml: "<i:Client id='client' xmlns:i='//miot-parts'>\
-                <Index id='index'/>\
+    Index: {
+        xml: "<main id='index'>\
+                <Client id='client'/>\
                 <Message id='message'/>\
                 <Control id='control'/>\
-              </i:Client>",
+              </main>",
         map: { share: "index/schedule/Database index/schedule/Sqlite" },
         fun: function (sys, items, opts) {
             this.watch("publish", (e, key, value) => {
@@ -31,8 +31,8 @@ $_().imports({
             });
         }
     },
-    Index: {
-        xml: "<main id='index' xmlns:i='index'>\
+    Client: {
+        xml: "<main id='client' xmlns:i='index'>\
                 <i:Musicbox id='musicbox'/>\
                 <i:Router id='router'/>\
                 <i:Schedule id='schedule'/>\
@@ -41,7 +41,7 @@ $_().imports({
     Message: {
         xml: "<main id='player'/>",
         fun: function (sys, items, opts) {
-            this.once("enter", (e, msg) => {
+            this.glance("message", (e, msg) => {
                 sys.player.watch("stat-change", (e, value) => {
                     if (value == "play")
                         sys.player.unwatch().notify("pl-vol#", msg.vol);
@@ -54,7 +54,7 @@ $_().imports({
         fun: function (sys, items, opts) {
             let buf = {};
             let set = new Set(["channel", "stat", "next", "vol", "interval"]);
-            this.on("enter", (e, msg) => {
+            this.watch("control", (e, msg) => {
                 for (let key in msg)
                   if (set.has(key) && buf[key] != msg[key])
                      this.notify("*", [`pl-${key}#`, msg[key]]);

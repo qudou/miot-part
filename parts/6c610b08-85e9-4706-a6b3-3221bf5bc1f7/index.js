@@ -7,29 +7,52 @@
 
 const xmlplus = require("xmlplus");
 
-xmlplus("064c1f7f-f10a-4682-b618-5ddf25dcc6cb", (xp, $_, t) => {
+xmlplus("6c610b08-85e9-4706-a6b3-3221bf5bc1f7", (xp, $_) => {
 
 $_().imports({
-    Client: {
-        xml: "<i:Client id='client' xmlns:i='//miot-parts'>\
-                <DropGoods id='drop-goods'/>\
-              </i:Client>"
+    Index: {
+        xml: "<main id='index'>\
+                <Ready id='ready'/>\
+                <DropGoods id='drop'/>\
+              </main>",
+    },
+    Ready: {
+        xml: "<Sqlite id='sqlite'/>",
+        fun: function (sys, items, opts) {
+            function data() {
+                return new Promise((resolve, reject) => {
+                    let stmt = `SELECT * FROM 商品资料`;
+                    items.sqlite.all(stmt, (err, data) => {
+                        if (err) throw err;
+                        resolve(data);
+                    });
+                });
+            }
+            this.watch("/ready", async (e, msg) => {
+                let table = [];
+                let r = await data();
+                r.forEach(i => {
+                    table[i['行号']] = (table[i['行号']] || []);
+                    table[i['行号']][i['列号']] = i;
+                });
+                this.trigger("to-user", ["/ready", table]);
+            });
+        }
     },
     DropGoods: {
         xml: "<main id='dropGoods'>\
-                <Command id='command'/>\
-                <SerialPort id='serialPort'/>\
+                <Command2 id='command'/>\
+                <SerialPort2 id='serialPort'/>\
               </main>",
         fun: function (sys, items, opts) {
-            this.watch("drop-goods", (e, v) => {
-                //console.log(v);
-                let datain = items.command(v.ln, v.col);
-                items.serialPort.write(datain);
+            this.watch("/drop", (e, v) => {
+                console.log(v);
+                //let datain = items.command(v.ln, v.col);
+                //items.serialPort.write(datain);
             });
             sys.serialPort.on("complete", (e, data) => {
                 //this.trigger("publish", [data]);
             });
-            this.on("enter", (e, msg) => this.notify("drop-goods", msg));
         }
     },
     Command: {
@@ -82,6 +105,15 @@ $_().imports({
                 serial.write(datain);
             }
             return { write: write };
+        }
+    },
+    Sqlite: {
+        fun: function (sys, items, opts) {
+            let sqlite = require("sqlite3").verbose(),
+                db = new sqlite.Database(`${__dirname}/data.db`);
+			db.exec("VACUUM");
+            db.exec("PRAGMA foreign_keys = ON");
+            return db;
         }
     }
 });

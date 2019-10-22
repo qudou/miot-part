@@ -30,10 +30,20 @@ $_().imports({
                 rows.forEach(part => {
                     if (part.link != Link) return;
                     require(`./parts/${part.id}/index.js`);
-                    sys.mqtt.append(`<Client id='${part.id}' xmlns='//${part.id}'/>`);
+                    let c = {map: {}, fun: fun};
+                    c.xml = `<Index xmlns='//${part.id}'/>`;
+                    c.map.msgscope = true;
+                    $_().imports({Client: c});
+                    sys.mqtt.append(`<Client id='${part.id}'/>`);
                 });
                 items.mqtt.init();
             });
+            function fun(sys, items, opts) {
+                this.on("/SYS", (e, p) => {
+                    p = JSON.parse(p);
+                    this.notify(p.topic, p.body);
+                });
+            }
         }
     },
     MQTT: {
@@ -63,23 +73,10 @@ $_().imports({
                     logger.info("connected to " + opts.server);
                 });
                 client.on("message", (topic, msg) => {
-                    if (table[topic])
-                        table[topic].trigger("enter", msg, false);
+                    table[topic] && table[topic].trigger("/SYS", msg, false);
                 });
             }
             return { init: init };
-        }
-    },
-    Client: {
-        map: { msgscope: true },
-        fun: function (sys, items, opts) {
-            let table = this.children().hash();
-            this.on("enter", (e, msg) => {
-                msg = JSON.parse(msg);
-                if (table[msg.topic]) {
-                    table[msg.topic].trigger("enter", msg.body, false);
-                }
-            });
         }
     },
     Sqlite: {
