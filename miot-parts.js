@@ -27,17 +27,23 @@ $_().imports({
         fun: async function (sys, items, opts) {
             items.sqlite.all(`SELECT * FROM parts`, (err, rows) => {
                 if (err) throw err;
-                rows.forEach(part => {
-                    if (part.link != Link) return;
-                    require(`./parts/${part.id}/index.js`);
-                    let c = {map: {}, fun: fun};
-                    c.xml = `<Index xmlns='//${part.id}'/>`;
-                    c.map.msgscope = true;
-                    $_().imports({Client: c});
-                    sys.mqtt.append(`<Client id='${part.id}'/>`);
-                });
+                rows.forEach(loadPart);
                 items.mqtt.init();
             });
+            function loadPart(part) {
+                if (part.link != Link) return;
+                try {
+                    load(part);
+                    sys.mqtt.append(`<Client id='${part.id}'/>`);
+                } catch(e) {logger.error(e)}
+            }
+            function load(part) {
+                require(`./parts/${part.id}/index.js`);
+                let c = {map: {}, fun: fun};
+                c.xml = `<Index xmlns='//${part.id}'/>`;
+                c.map.msgscope = true;
+                $_().imports({Client: c});
+            }
             function fun(sys, items, opts) {
                 this.on("/SYS", (e, p) => {
                     p = JSON.parse(p);
