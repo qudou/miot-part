@@ -35,7 +35,9 @@ $_().imports({
                 try {
                     load(part);
                     sys.mqtt.append(`<Client id='${part.id}'/>`);
-                } catch(e) {logger.error(e)}
+                } catch(e) {
+                    logger.error(e), console.log(e);
+                }
             }
             function load(part) {
                 require(`./parts/${part.id}/index.js`);

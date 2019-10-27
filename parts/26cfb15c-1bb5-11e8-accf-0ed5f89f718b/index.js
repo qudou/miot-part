@@ -25,13 +25,13 @@ $_().imports({
             let checkDiskSpace = require('check-disk-space');
             let schedule = require("node-schedule");
             let ip = require("ip");
-            this.watch("sysinfo", async e => {
+            this.watch("/sysinfo", async e => {
                 let sysinfo = await si.cpu();
                 sysinfo.dateTime = (new Date).toLocaleString();
                 sysinfo.temp = await temp();
                 sysinfo.diskspace = await diskspace();
                 sysinfo.ip = ip.address();
-                this.trigger("to-user", ["data-change", sysinfo]);
+                this.trigger("to-user", ["/sysinfo", sysinfo]);
             });
             function temp() {
                 return new Promise((resolve, reject) => {
@@ -48,13 +48,13 @@ $_().imports({
                     });
                 });
             }
-            schedule.scheduleJob("*/1 * * * *", () => this.notify("sysinfo"));
+            schedule.scheduleJob("*/1 * * * *", () => this.notify("/sysinfo"));
         }
     },
     Reboot: {
         fun: function (sys, items, opts) {
             let process = require("child_process");
-            this.watch("reboot", (e, msg) => {
+            this.watch("/reboot", (e, msg) => {
                 process.exec("sudo reboot", err => {err && console.log(err)});
             });
         }
@@ -62,7 +62,7 @@ $_().imports({
     ShutDown: {
         fun: function (sys, items, opts) {
             let process = require("child_process");
-            this.watch("shutdown", (e, msg) => {
+            this.watch("/shutdown", (e, msg) => {
                 process.exec("sudo halt", err => {err && console.log(err)});
             });
         }

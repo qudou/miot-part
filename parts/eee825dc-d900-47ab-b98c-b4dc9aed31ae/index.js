@@ -18,16 +18,19 @@ $_().imports({
     Index: {
         xml: "<main id='index'>\
                 <Client id='client'/>\
+                <Status id='status'/>\
                 <Message id='message'/>\
                 <Control id='control'/>\
               </main>",
         map: { share: "index/schedule/Database index/schedule/Sqlite" },
         fun: function (sys, items, opts) {
+            let timer;
             this.watch("publish", (e, key, value) => {
                 let o = {};
                 o[key] = value;
                 this.trigger("to-user", ["data-change", o]);
                 this.notify(`${key}-change`, [value]);
+                this.notify("cache", o);
             });
         }
     },
@@ -37,6 +40,37 @@ $_().imports({
                 <i:Router id='router'/>\
                 <i:Schedule id='schedule'/>\
               </main>"
+    },
+    Status: {
+        xml: "<main id='status' xmlns:i='status'>\
+                <i:Sqlite id='db'/>\
+              </main>",
+        fun: async function (sys, items, opts) {
+            let timer, msg = await data();
+            this.notify("message", msg);
+            function data() {
+                return new Promise(resolve => {
+                    items.db.all("SELECT song FROM status", (err, rows) => {
+                        if (err) throw err;
+                        resolve(JSON.parse(rows[0].song));
+                    });
+                });
+            }
+            this.watch("/ready", async () => {
+                this.trigger("to-user", ["/ready", msg]);
+            });
+            this.watch("cache", async (e, o) => {
+                xp.extend(true, msg, o);
+                clearTimeout(timer);
+                timer = setTimeout(cache, 100);
+            });
+            function cache() {
+                let stmt = items.db.prepare("UPDATE status set song = ?");
+                stmt.run(JSON.stringify(msg), err => {
+                    if (err) throw err;
+                });
+            }
+        }
     },
     Message: {
         xml: "<main id='player'/>",
@@ -343,7 +377,19 @@ $_("index/schedule").imports({
     Sqlite: {
         fun: function (sys, items, opts) {
             let sqlite = require("sqlite3").verbose(),
-                db = new sqlite.Database(`${__dirname}/data.db`);
+                db = new sqlite.Database(`${__dirname}/songs.db`);
+			db.exec("VACUUM");
+            db.exec("PRAGMA foreign_keys = ON");
+            return db;
+        }
+    }
+});
+
+$_("status").imports({
+    Sqlite: {
+        fun: function (sys, items, opts) {
+            let sqlite = require("sqlite3").verbose(),
+                db = new sqlite.Database(`${__dirname}/status.db`);
 			db.exec("VACUUM");
             db.exec("PRAGMA foreign_keys = ON");
             return db;

@@ -13,33 +13,81 @@ xmlplus("c135d42e-2bc4-4a06-9f9e-054adf44a35d", (xp, $_, t) => {
 $_().imports({
     Index: {
         xml: "<main id='index'>\
+                <Timers id='timers'/>\
+                <Update id='update'/>\
                 <Schedule id='schedule'/>\
-                <Message id='message'/>\
-              </main>"
+              </main>",
+        map: { share: "Sqlite"}
     },
-    Message: {
+    Timers: {
+        xml: "<Sqlite id='sqlite'/>",
+        fun: async function (sys, items, opts) {
+            function timers() {
+                return new Promise((resolve, reject) => {
+                    items.sqlite.all(`SELECT * FROM timers`, (err, rows) => {
+                        if (err) throw err;
+                        resolve(rows);
+                    });
+                });
+            }
+            this.watch("/timers", async () => {
+                let list = await timers();
+                this.trigger("to-user", ["/timers", list]);
+            });
+            let list = await timers();
+            list.forEach(timer => this.notify("set-timer", timer.id));
+        }
+    },
+    Update: {
+        xml: "<Sqlite id='sqlite'/>",
         fun: function (sys, items, opts) {
-            this.glance("message", (e, msg) => this.notify("sh-schedule#", msg));
+            this.watch("/update", (e, p) => {
+                let update = "UPDATE timers SET pattern=? WHERE id=?";
+                let stmt = items.sqlite.prepare(update);
+                stmt.run(p.pattern, p.id, err => {
+                    if (err) throw err;
+                    this.notify("set-timer", p.id);
+                });
+            });
         }
     },
     Schedule: {
-        xml: "<main id='schedule'/>",
+        xml: "<main id='schedule'>\
+                <Sqlite id='sqlite'/>\
+              </main>",
         fun: function (sys, items, opts) {
             let jobs = [];
-            this.watch("sh-schedule#", (e, d) => {
-                jobs.forEach(job => job.cancel());
-                jobs.splice(0);
-                d.schedule.forEach(item => jobs.push(make(item)));
-                this.trigger("to-user", ["data-change", {schedule: d.schedule}]);
+            function timer(id) {
+                return new Promise((resolve, reject) => {
+                    let stmt = `SELECT * FROM timers WHERE id=${id}`;
+                    items.sqlite.all(stmt, (err, rows) => {
+                        if (err) throw err;
+                        resolve(rows[0]);
+                    });
+                });
+            }
+            this.watch("set-timer", async (e, id) => {
+                let t = await timer(id);
+                let job = jobs[t.id];
+                job && job.cancel();
+                jobs[t.id] = makeJob(t);
             });
-            function make(item) {
+            function makeJob(item) { // action: paly or pause
                 let p = item.pattern.split(':');
                 return schedule.scheduleJob(`${p[1]} ${p[0]} * * *`, e => {
-                    let payload = {topic: "control", body: item.body};
+                    let payload = {topic: "control", body: {stat: item.action}};
                     sys.schedule.trigger("to-part", [item.target, payload]);
                 });
             }
-            this.watch("schedule", (e, msg) => this.notify("sh-schedule#", msg));
+        }
+    },
+    Sqlite: {
+        fun: function (sys, items, opts) {
+            let sqlite = require("sqlite3").verbose(),
+                db = new sqlite.Database(`${__dirname}/data.db`);
+            db.exec("VACUUM");
+            db.exec("PRAGMA foreign_keys = ON");
+            return db;
         }
     }
 });
