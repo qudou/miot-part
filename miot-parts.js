@@ -30,10 +30,14 @@ $_().imports({
         fun: function (sys, items, opts) {
             items.sqlite.all(`SELECT * FROM parts`, (err, rows) => {
                 if (err) throw err;
-                rows.forEach(p => p.link == Link && load(p));
+                rows.forEach(p => {
+                    try {load(p)}
+                    catch (e) {logger.error(e)}
+                });
                 sys.client.show();
             });
             function load(part) {
+                if (part.link != Link) return;
                 require(`./parts/${part.id}/index.js`);
                 let c = xp.hasComponent(`//${part.id}/Index`);
                 c.map.msgscope = true;
