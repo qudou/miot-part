@@ -12,7 +12,7 @@ const logger = log4js.getLogger("miot-parts");
 
 const Server = "http://www.xmlplus.cn:8080";
 
-xmlplus("eee825dc-d900-47ab-b98c-b4dc9aed31ae", (xp, $_, t) => {
+xmlplus("35e64bc0-1268-477a-9327-94e880e67866", (xp, $_, t) => {
 
 $_().imports({
     Index: {

@@ -7,7 +7,7 @@
 
 const xmlplus = require("xmlplus");
 
-xmlplus("df454200-ec8e-11e9-971d-af3af76c747f", (xp, $_) => {
+xmlplus("647e0332-12c9-4b43-8b2f-3bc6a9bc8425", (xp, $_) => {
 
 $_().imports({
     Index: {
@@ -15,6 +15,7 @@ $_().imports({
                 <Ready id='ready'/>\
                 <Update id='update'/>\
               </main>",
+        map: { share: "Sqlite" }
     },
     Ready: {
         xml: "<Sqlite id='sqlite'/>",
@@ -64,9 +65,8 @@ $_().imports({
     },
     Sqlite: {
         fun: function (sys, items, opts) {
-            let str = "6c610b08-85e9-4706-a6b3-3221bf5bc1f7";
             let sqlite = require("sqlite3").verbose(),
-                db = new sqlite.Database(`${__dirname}/../${str}/data.db`);
+                db = new sqlite.Database(`${__dirname}/data.db`);
 			db.exec("VACUUM");
             db.exec("PRAGMA foreign_keys = ON");
             return db;

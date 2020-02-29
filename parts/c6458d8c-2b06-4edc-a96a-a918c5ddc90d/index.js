@@ -7,7 +7,7 @@
 
 const xmlplus = require("xmlplus");
 
-xmlplus("6c610b08-85e9-4706-a6b3-3221bf5bc1f7", (xp, $_) => {
+xmlplus("c6458d8c-2b06-4edc-a96a-a918c5ddc90d", (xp, $_) => {
 
 $_().imports({
     Index: {
@@ -15,6 +15,7 @@ $_().imports({
                 <Ready id='ready'/>\
                 <DropGoods id='drop'/>\
               </main>",
+        map: { share: "Sqlite" }
     },
     Ready: {
         xml: "<Sqlite id='sqlite'/>",
@@ -41,18 +42,28 @@ $_().imports({
     },
     DropGoods: {
         xml: "<main id='dropGoods'>\
-                <Command2 id='command'/>\
-                <SerialPort2 id='serialPort'/>\
+                <Sqlite id='sqlite'/>\
+                <Command id='command'/>\
+                <SerialPort id='serialPort'/>\
               </main>",
         fun: function (sys, items, opts) {
             this.watch("/drop", (e, v) => {
                 console.log(v);
-                //let datain = items.command(v.ln, v.col);
-                //items.serialPort.write(datain);
+                let datain = items.command(v.ln, v.col);
+                items.serialPort.write(datain);
+                update(v.ln, v.col);
             });
             sys.serialPort.on("complete", (e, data) => {
+                console.log(data);
                 //this.trigger("publish", [data]);
             });
+            function update(ln, col) {
+                let update = "UPDATE 商品资料 SET 库存=库存-1 WHERE 行号=? AND 列号=?";
+                let stmt = items.sqlite.prepare(update);
+                stmt.run(ln, col, err => {
+                    if (err) throw err;
+                });
+            }
         }
     },
     Command: {
@@ -109,8 +120,9 @@ $_().imports({
     },
     Sqlite: {
         fun: function (sys, items, opts) {
+            let str = "df454200-ec8e-11e9-971d-af3af76c747f";
             let sqlite = require("sqlite3").verbose(),
-                db = new sqlite.Database(`${__dirname}/data.db`);
+                db = new sqlite.Database(`${__dirname}/../${str}/data.db`);
 			db.exec("VACUUM");
             db.exec("PRAGMA foreign_keys = ON");
             return db;

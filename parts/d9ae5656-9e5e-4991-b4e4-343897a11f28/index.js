@@ -8,7 +8,7 @@
 const xmlplus = require("xmlplus");
 const schedule = require("node-schedule");
 
-xmlplus("26cfb15c-1bb5-11e8-accf-0ed5f89f718b", (xp, $_) => {
+xmlplus("d9ae5656-9e5e-4991-b4e4-343897a11f28", (xp, $_) => {
 
 $_().imports({
     Index: {
@@ -29,6 +29,7 @@ $_().imports({
                 let sysinfo = await si.cpu();
                 sysinfo.dateTime = (new Date).toLocaleString();
                 sysinfo.temp = await temp();
+                sysinfo.uptime = await uptime();
                 sysinfo.diskspace = await diskspace();
                 sysinfo.ip = ip.address();
                 this.trigger("to-user", ["/sysinfo", sysinfo]);
@@ -37,6 +38,12 @@ $_().imports({
                 return new Promise((resolve, reject) => {
                     let t = spawn('cat', ['/sys/class/thermal/thermal_zone0/temp']);
                     t.stdout.on('data', data => resolve(data/1000 + '℃'));
+                });
+            }
+            function uptime() {
+                return new Promise((resolve, reject) => {
+                    let t = spawn('uptime', ['-s']);
+                    t.stdout.on('data', data => resolve(data+''));
                 });
             }
             function diskspace() {
