@@ -120,7 +120,7 @@ $_().imports({
     },
     Sqlite: {
         fun: function (sys, items, opts) {
-            let str = "df454200-ec8e-11e9-971d-af3af76c747f";
+            let str = "647e0332-12c9-4b43-8b2f-3bc6a9bc8425";
             let sqlite = require("sqlite3").verbose(),
                 db = new sqlite.Database(`${__dirname}/../${str}/data.db`);
 			db.exec("VACUUM");

@@ -6,7 +6,7 @@
  */
 
 const xmlplus = require("xmlplus");
-const MiotRoot = `${__dirname}/../miot-local/`;
+const MiotRoot = `${__dirname}/../miot-local`;
 const Server = "mqtt://raspberrypi:1883";
 const Link = "5971b164-779f-4bfa-a676-16582a77d7e9";
 
