@@ -1,17 +1,17 @@
 #!/bin/sh
 ### BEGIN INIT INFO
-# Provides:          miot-parts
+# Provides:          miot-part
 # Required-Start:    $local_fs $remote_fs $network $syslog $named
 # Required-Stop:     $local_fs $remote_fs $network $syslog $named
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # X-Interactive:     true
-# Short-Description: Start/stop miot-parts server
+# Short-Description: Start/stop miot-part server
 ### END INIT INFO
 
-DEAMON=/home/pi/miot-parts/miot-parts.js
-LOG=/home/pi/miot-parts/miot-parts.log
-PID=/home/pi/miot-parts/miot-parts.pid
+DEAMON=/home/pi/miot-part/miot-part.js
+LOG=/home/pi/miot-part/miot-part.log
+PID=/home/pi/miot-part/miot-part.pid
 
 export PATH=$PATH:/usr/local/bin
 export NODE_PATH=$NODE_PATH:/usr/local/lib/node_modules
@@ -27,7 +27,7 @@ case "$1" in
   su -c "forever restart -l ${LOG} --pidFile ${PID} -a ${DEAMON}" - pi
   ;;
   *)
-  echo "Usage: /etc.init.d/miot-parts {start|stop|restart}"
+  echo "Usage: /etc.init.d/miot-part {start|stop|restart}"
   exit 1
   ;;
 esac
