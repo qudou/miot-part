@@ -1,6 +1,6 @@
 /*!
- * miot-part.js v1.0.0
- * https://github.com/qudou/miot-parts
+ * miot-part.js v1.1.1
+ * https://github.com/qudou/miot-part
  * (c) 2009-2017 qudou
  * Released under the MIT license
  */
@@ -11,7 +11,7 @@ xmlplus("miot-part", (xp, $_) => {
 
 $_().imports({
     Client: {
-        opt: { server: "mqtt://localhost:1886", pid: "pid" },
+        opt: { server: "mqtt://localhost:1883", pid: "pid" },
         fun: function (sys, items, opts) {
             let client  = require("mqtt").connect(opts.server);
             client.on("connect", e => {
@@ -25,9 +25,9 @@ $_().imports({
                 client.publish(topic, JSON.stringify(p), {qos:1,retain: true});
             }
             // 将消息发往用户端
-            this.on("to-users", (e, topic, body) => {
+            this.on("to-users", (e, topic, data) => {
                 e.stopPropagation();
-                publish("to-gateway", {pid: opts.pid, topic: targets, data: topic});
+                publish("to-gateway", {pid: opts.pid, topic: topic, data: data});
             });
             // 将消息发往局域网内配件
             this.on("to-parts", (e, targets, topic, body) => {
