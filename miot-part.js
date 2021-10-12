@@ -41,3 +41,5 @@ $_().imports({
 
 
 });
+
+module.exports = xmlplus;
