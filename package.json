@@ -1,6 +1,6 @@
 {
   "name": "miot-part",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "基于树莓派的物联网配件模块",
   "main": "miot-parts.js",
   "scripts": {
