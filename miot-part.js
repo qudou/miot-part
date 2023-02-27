@@ -13,6 +13,7 @@ $_().imports({
     Client: {
         opt: { port: 1883, partId: "pid", protocol: "mqtt" },
         fun: function (sys, items, opts) {
+			opts.clientId = opts.partId;
             let client  = require("mqtt").connect(opts);
             client.on("connect", e => {
                 client.subscribe(opts.partId);
